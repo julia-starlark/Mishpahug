@@ -17,13 +17,12 @@ import lombok.Getter;
 import lombok.NoArgsConstructor;
 import lombok.Setter;
 import lombok.ToString;
-
 @Getter
 @NoArgsConstructor
 @AllArgsConstructor
 @Builder
 @ToString
-public class EventResponseDto implements Comparable<EventResponseDto>{
+public class EventResponseCutDto {
 	@Field("_id")
 	Long eventId;
 	String title;
@@ -41,8 +40,6 @@ public class EventResponseDto implements Comparable<EventResponseDto>{
 	@JsonInclude(Include.NON_NULL)
 	@Setter
 	AddressDto address;
-	@Setter
-	@JsonInclude(Include.NON_NULL)
 	List<String> food;
 	String description;
 	@JsonInclude(Include.NON_NULL)
@@ -50,19 +47,8 @@ public class EventResponseDto implements Comparable<EventResponseDto>{
 	String status;
 	@JsonInclude(Include.NON_NULL)
 	@Setter
-	Set<ParticipantDto> participants;
+	Set<String> participants;
 	@JsonInclude(Include.NON_NULL)
 	@Setter
-	OwnerDto owner;
-	
-	@Override
-	public int compareTo(EventResponseDto event) {
-		int res = this.getDate().compareTo(event.getDate());
-		if(res == 0) {
-			return this.getTime().compareTo(event.getTime());
-		}
-		return res;
-	}
-	
-	
+	String owner;
 }

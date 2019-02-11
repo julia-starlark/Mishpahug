@@ -35,7 +35,9 @@ public class EventArchive {
 	List<String> food;
 	String description;
 	String status;
+	Set<String> subscribers;
 	Set<String> participants;
+	Set<String> voted;
 	String owner;
-
+	
 }

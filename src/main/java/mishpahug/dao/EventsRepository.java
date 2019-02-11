@@ -2,6 +2,7 @@ package mishpahug.dao;
 
 import java.time.LocalDate;
 import java.util.List;
+import java.util.Set;
 
 import org.springframework.data.mongodb.repository.MongoRepository;
 import org.springframework.data.mongodb.repository.Query;
@@ -9,7 +10,6 @@ import org.springframework.data.mongodb.repository.Query;
 import mishpahug.domain.Event;
 import mishpahug.dto.EventDateTimeDto;
 import mishpahug.dto.EventForCalendarDto;
-import mishpahug.dto.EventResponseDto;
 
 public interface EventsRepository extends MongoRepository<Event, Long> {
 
@@ -21,9 +21,14 @@ public interface EventsRepository extends MongoRepository<Event, Long> {
 
 	public List<Event> findEventByOwner(String owner);
 	
-	@Query(value="{$and:[{'date': ?0},{'participants':?1}]}")
+	@Query("{$and:[{'date': ?1},{'participants':?0}]}")
 	public List<Event> findDateOverlapForUser(String user, LocalDate date);
 	
-	//public List<EventResponseDto> find
-
+	@Query("{'participants':?0}")
+	public List<Event> findEventByParticipant(String participant);
+	
+	//FIXME how to get boolean
+	@Query("{$and:[{'eventId':{$in:?0}},{'date':?1}]}")
+	public List<Event> findOverlapByDate(Set<Long> eventId, LocalDate date);
+	
 }

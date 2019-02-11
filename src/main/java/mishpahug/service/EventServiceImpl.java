@@ -5,8 +5,8 @@ import java.time.Duration;
 import java.time.LocalDate;
 import java.time.LocalDateTime;
 import java.time.Period;
-import java.time.YearMonth;
 import java.util.ArrayList;
+import java.util.Comparator;
 import java.util.HashSet;
 import java.util.List;
 import java.util.Set;
@@ -41,7 +41,6 @@ import mishpahug.dto.LocationDto;
 import mishpahug.dto.OwnerDto;
 import mishpahug.dto.ParticipantDto;
 import mishpahug.dto.SuccessResponseDto;
-import mishpahug.dto.UserForInviteDto;
 import mishpahug.exceptions.ConflictException;
 
 @Service
@@ -58,8 +57,6 @@ public class EventServiceImpl implements EventService {
 
 	@Override
 	@Transactional
-	// FIXME check that status have been changed to pending, change status to done
-	// after finishing
 	public SuccessResponseDto addEvent(EventCreateDto eventCreateDto, Principal principal) {
 		Location location = new Location(eventCreateDto.getAddress().getLocation().getLat(),
 				eventCreateDto.getAddress().getLocation().getLng(),
@@ -75,10 +72,13 @@ public class EventServiceImpl implements EventService {
 		 */
 		List<EventDateTimeDto> ownerEvents = eventsRepository.findEventDateTimeByOwner(event.getOwner());
 		LocalDateTime eventStart = LocalDateTime.of(event.getDate(), event.getTime());
-		// FIXME event starts after start, but before finish
+		LocalDateTime eventFinish = LocalDateTime.of(event.getDate(), event.getTime()).plusMinutes(event.getDuration());
+		// FIXME refactor
 		List<EventDateTimeDto> eventOverlap = ownerEvents.stream()
-				.filter(e -> LocalDateTime.of(e.getDate(), e.getTime()).isBefore(eventStart)
+				.filter(e -> (LocalDateTime.of(e.getDate(), e.getTime()).isBefore(eventStart)
 						&& LocalDateTime.of(e.getDate(), e.getTime()).plusMinutes(e.getDuration()).isAfter(eventStart))
+						|| (LocalDateTime.of(e.getDate(), e.getTime()).isAfter(eventStart) && LocalDateTime
+								.of(e.getDate(), e.getTime()).plusMinutes(e.getDuration()).isBefore(eventFinish)))
 				.collect(Collectors.toList());
 		if (!eventOverlap.isEmpty()) {
 			throw new ConflictException("This user has already created the event on this date and time!");
@@ -103,6 +103,11 @@ public class EventServiceImpl implements EventService {
 				}
 				archiveRepository.save(convertToEventArchive(event));
 				eventsRepository.delete(event);
+				List<User> participants = userRepository.findByInvitationsIn(event.getEventId());
+				if (!participants.isEmpty()) {
+					participants.forEach(u -> u.deleteInvitation(event.getEventId()));
+					userRepository.saveAll(participants);
+				}
 			}
 
 		}, delay, TimeUnit.MINUTES);
@@ -120,6 +125,8 @@ public class EventServiceImpl implements EventService {
 			public void run() {
 				if (!event.getStatus().equals("pending")) {
 					event.setStatus("not done");
+					archiveRepository.save(convertToEventArchive(event));
+					eventsRepository.delete(event);
 				}
 			}
 		}, delay, TimeUnit.MINUTES);
@@ -213,11 +220,18 @@ public class EventServiceImpl implements EventService {
 
 	@Override
 	public CalendarResponseDto getEventsByMonth(int month, Principal principal) {
-		//FIXME daysInMonth +1 
-		LocalDate dateFrom = LocalDate.of(LocalDate.now().getYear(), month, 1);
-		YearMonth yearMonth = YearMonth.of(LocalDate.now().getYear(), month);
-		int daysInMonth = yearMonth.lengthOfMonth();
-		LocalDate dateTo = dateFrom.plusDays(daysInMonth);
+		int year = LocalDate.now().getYear();
+		LocalDate dateFrom = LocalDate.of(year, month, 1);
+		/*
+		 * YearMonth yearMonth = YearMonth.of(LocalDate.now().getYear(), month); int
+		 * daysInMonth = yearMonth.lengthOfMonth(); LocalDate dateTo =
+		 * dateFrom.plusDays(daysInMonth).plusDays(1);
+		 */
+		if (month == 12) {
+			month = 1;
+			year = LocalDate.now().getYear() + 1;
+		}
+		LocalDate dateTo = LocalDate.of(year, month, 1);
 		List<EventForCalendarDto> eventsList = eventsRepository.findEventByMonth(dateFrom, dateTo, principal.getName());
 		Set<EventForCalendarDto> myEvents = new HashSet<>();
 		Set<EventForCalendarDto> subscribedEvents = new HashSet<>();
@@ -239,13 +253,6 @@ public class EventServiceImpl implements EventService {
 	@Override
 	public EventsListResponseDto getOwnEventsList(Principal principal) {
 		List<Event> myEvents = eventsRepository.findEventByOwner(principal.getName());
-		myEvents.sort((e1, e2) -> {
-			int res = e1.getDate().compareTo(e2.getDate());
-			if (res != 0) {
-				return res;
-			}
-			return e1.getTime().compareTo(e2.getTime());
-		});
 		List<EventResponseDto> eventsRespDto = new ArrayList<>();
 		for (Event e : myEvents) {
 			Set<ParticipantDto> participants = e.getParticipants().stream().map(id -> userRepository.findById(id).get())
@@ -255,7 +262,6 @@ public class EventServiceImpl implements EventService {
 			}
 			eventsRespDto.add(convertToEventResponseDto(e, participants));
 		}
-		myEvents.forEach(e -> System.out.println(e));
 		EventsListResponseDto events = new EventsListResponseDto(eventsRespDto);
 		return events;
 	}
@@ -263,39 +269,95 @@ public class EventServiceImpl implements EventService {
 	@Override
 	public EventsHistoryListResponseDto getOwnDoneEventsList(Principal principal) {
 		List<EventResponseDto> ownEvents = archiveRepository.findByOwner(principal.getName());
+		ownEvents.sort(new EventsDateDescendingComparator());
 		EventsHistoryListResponseDto events = new EventsHistoryListResponseDto(ownEvents);
 		return events;
 	}
 
 	@Override
 	public EventsListResponseDto getSubscribedEvents(Principal principal) {
-		//FIXME
-		//FIXME User invitations clear events that finished
+		// FIXME User invitations clear events that finished
 		String userLogin = principal.getName();
-		List<EventResponseDto> eventsArchive = archiveRepository.findEventsByParticipantsContains(userLogin);
+		List<Event> eventsArchive = archiveRepository.findEventsByParticipants(userLogin);
+		List<EventResponseDto> subcribedEvents = new ArrayList<>();
+		if (!eventsArchive.isEmpty()) {
+			eventsArchive.stream().map(
+					e -> convertToEventResponseDto(e, convertToOwnerDto(userRepository.findById(e.getOwner()).get())))
+					.forEach(e -> {
+						e.getOwner().setPhoneNumber(null);
+						e.setTime(null);
+						e.setDuration(null);
+						e.setAddress(null);
+						e.setFood(null);
+						subcribedEvents.add(e);
+					});
+			/*
+			 * for (Event e : eventsArchive) { User owner =
+			 * userRepository.findById(e.getOwner()).get(); EventResponseDto eventDto =
+			 * convertToEventResponseDto(e, convertToOwnerDto(owner));
+			 * eventDto.getOwner().setPhoneNumber(null); eventDto.setTime(null);
+			 * eventDto.setDuration(null); eventDto.setAddress(null);
+			 * eventDto.setFood(null); subcribedEvents.add(eventDto); }
+			 */
+		}
+		List<Event> events = eventsRepository.findEventByParticipant(userLogin);
+		if (!events.isEmpty()) {
+			events.stream().map(
+					e -> convertToEventResponseDto(e, convertToOwnerDto(userRepository.findById(e.getOwner()).get())))
+					.forEach(e -> {
+						if (e.getStatus().equals("in progress")) {
+							e.getOwner().setPhoneNumber(null);
+							e.getAddress().setLocation(null);
+							e.getAddress().setPlace_id(null);
+						}
+						subcribedEvents.add(e);
+					});
+			/*
+			 * for (Event e : events) { User owner =
+			 * userRepository.findById(e.getOwner()).get(); OwnerDto ownerDto =
+			 * convertToOwnerDto(owner); EventResponseDto eventDto =
+			 * convertToEventResponseDto(e, ownerDto); if
+			 * (e.getStatus().equals("in progress")) {
+			 * eventDto.getOwner().setPhoneNumber(null);
+			 * eventDto.getAddress().setLocation(null);
+			 * eventDto.getAddress().setPlace_id(null); } subcribedEvents.add(eventDto); }
+			 */
+		}
+		EventsListResponseDto eventsList = new EventsListResponseDto(subcribedEvents);
+		return eventsList;
+	}
+	
+	private class EventsDateDescendingComparator implements  Comparator<EventResponseDto>{
+
+		@Override
+		public int compare(EventResponseDto e1, EventResponseDto e2) {
+			int res = e2.getDate().compareTo(e1.getDate());
+			if(res == 0) {
+				return e2.getTime().compareTo(e1.getTime());
+			}
+			return res;
+		}
 		
-		
-		return null;
 	}
 
 	@Override
 	public SuccessResponseDto subscribeToEvent(Long eventId, Principal principal) {
-		//FIXME check for other subscribtions on the same date
 		Event event = eventsRepository.findById(eventId).orElse(null);
 		String userLogin = principal.getName();
-		if(event.getOwner().equals(userLogin) || event.getParticipants().contains(userLogin)) {
+		if (event.getOwner().equals(userLogin) || event.getSubscribers().contains(userLogin)
+				|| !eventsRepository.findOverlapByDate(userRepository.findById(userLogin).get().getInvitations(), event.getDate()).isEmpty()) {
 			throw new ConflictException("User is the owner of the event or already subscribed to it!");
 		}
-		event.addParticipant(principal.getName());
+		event.addSubscriber(principal.getName());
 		eventsRepository.save(event);
 		return new SuccessResponseDto("User subscribed to the event!");
 	}
 
 	@Override
 	public SuccessResponseDto unsubscribeFromEvent(Long eventId, Principal principal) {
-		//FIXME check if user is subscribed for the event
+		// FIXME security check if user is subscribed for the event
 		Event event = eventsRepository.findById(eventId).orElse(null);
-		if(!event.getStatus().equals("in progress")) {
+		if (!event.getStatus().equals("in progress")) {
 			throw new ConflictException("User can't unsubscribe from the event!");
 		}
 		event.deleteParticipant(principal.getName());
@@ -308,21 +370,16 @@ public class EventServiceImpl implements EventService {
 	public SuccessResponseDto voteForEvent(Long eventId, Double voteCount, Principal principal) {
 		// FIXME web security check if user was a participant of the event
 		Event event = eventsRepository.findById(eventId).orElse(null);
-		// FIXME how not to get the whole user?
-		List<User> participants = userRepository.findParticipants(event.getParticipants(), eventId);
-		List<String> userNames = new ArrayList<>();
 		String userLogin = principal.getName();
-		for(User u : participants) {
-			userNames.add(u.getLogin());
-		}
+		Set<String> participants = event.getParticipants();
 		Set<String> voted = event.getVoted();
-		if (voted.contains(userLogin) || !userNames.contains(userLogin)) {
+		if (voted.contains(userLogin) || !participants.contains(userLogin)) {
 			throw new ConflictException("User has already voted for the event or can't vote for the event!");
 		}
 		User owner = userRepository.findById(event.getOwner()).get();
 		double currentRate = owner.getRate();
 		int numVoters = owner.getNumberOfVoters();
-		double newRate = (currentRate*numVoters + voteCount)/++numVoters;
+		double newRate = (currentRate * numVoters + voteCount) / ++numVoters;
 		owner.setRate(newRate);
 		owner.setNumberOfVoters(numVoters++);
 		userRepository.save(owner);
@@ -333,19 +390,19 @@ public class EventServiceImpl implements EventService {
 
 	@Override
 	public InviteResponseDto inviteToEvent(Long eventId, Long userId) {
-		//FIXME check that the user is the owner of the event
-		//FIXME send notification to user
+		// FIXME check that the user is the owner of the event
+		// FIXME send notification to user
 		Event event = eventsRepository.findById(eventId).orElse(null);
 		User user = userRepository.findUserByUserId(userId);
 		String login = user.getLogin();
-		if(!event.getParticipants().contains(login) || user.getInvitations().contains(userId)) {
+		if (!event.getParticipants().contains(login) || user.getInvitations().contains(userId)) {
 			throw new ConflictException("User is already invited to the event or is not subscribed to the event!");
 		}
 		user.addInvitation(eventId);
-		//check if user has other subscriptions on the date and cancel them
+		// check if user has other subscriptions on the date and cancel them
 		List<Event> eventsOverlap = eventsRepository.findDateOverlapForUser(login, event.getDate());
-		if(!eventsOverlap.isEmpty()) {
-			for(Event e : eventsOverlap) {
+		if (!eventsOverlap.isEmpty()) {
+			for (Event e : eventsOverlap) {
 				e.deleteParticipant(login);
 				eventsRepository.save(e);
 			}
@@ -356,7 +413,7 @@ public class EventServiceImpl implements EventService {
 
 	@Override
 	public EventStatusResponseDto changeEventStatus(Long eventId) {
-		//FIXME security check that the user is the owner of the event
+		// FIXME security check that the user is the owner of the event
 		Event event = eventsRepository.findById(eventId).orElse(null);
 		event.setStatus("pending");
 		eventsRepository.save(event);

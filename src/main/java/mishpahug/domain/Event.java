@@ -34,9 +34,11 @@ public class Event {
 	String description;
 	@Setter
 	String status;
+	Set<String> subscribers;
 	Set<String> participants;
 	Set<String> voted;
 	String owner;
+	
 
 	public Event(String title, String holiday, String confession, LocalDate date, LocalTime time, int duration,
 			Address address, List<String> food, String description, String owner) {
@@ -51,9 +53,20 @@ public class Event {
 		this.food = food;
 		this.description = description;
 		this.status = "in progress";
+		this.subscribers = new HashSet<>();
 		this.participants = new HashSet<>();
 		this.voted = new HashSet<>();
 		this.owner = owner;
+	}
+	
+	public boolean addSubscriber(String login) {
+		subscribers.add(login);
+		return true;
+	}
+	
+	public boolean deleteSubscriber(String login) {
+		subscribers.remove(login);
+		return true;
 	}
 
 	public boolean addParticipant(String login) {

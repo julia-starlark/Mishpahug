@@ -58,8 +58,8 @@ public class EventsController {
 	}
 	
 	@GetMapping("/participationlist")
-	public EventsListResponseDto getSubscribedEvents() {
-		return eventService.getSubscribedEvents();
+	public EventsListResponseDto getSubscribedEvents(Principal principal) {
+		return eventService.getSubscribedEvents(principal);
 	}
 	
 	@PutMapping("/vote/{eventId}/{voteCount}")

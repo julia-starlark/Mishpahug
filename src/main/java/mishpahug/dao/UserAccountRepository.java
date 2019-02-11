@@ -15,4 +15,6 @@ public interface UserAccountRepository extends MongoRepository<User, String> {
 	
 	User findUserByUserId(long userId);
 	
+	List<User> findByInvitationsIn(long eventId);
+	
 }
