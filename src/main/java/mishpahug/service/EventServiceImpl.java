@@ -88,7 +88,7 @@ public class EventServiceImpl implements EventService {
 			throw new ConflictException("This user has already created the event on this date and time!");
 		}
 		eventsRepository.save(event);
-		checkForPendingStatus(event);
+		//checkForPendingStatus(event);
 		changeEventStatusToDone(event);
 		return new SuccessResponseDto("Event is created");
 
