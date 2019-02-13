@@ -424,10 +424,11 @@ public class EventServiceImpl implements EventService {
 		Event event = eventsRepository.findById(eventId).orElse(null);
 		User user = userRepository.findUserByUserId(userId);
 		String login = user.getLogin();
-		if (!event.getParticipants().contains(login) || user.getInvitations().contains(userId)) {
+		if (!event.getSubscribers().contains(login) || user.getInvitations().contains(userId)) {
 			throw new ConflictException("User is already invited to the event or is not subscribed to the event!");
 		}
 		user.addInvitation(eventId);
+		event.addParticipant(login);
 		List<Event> eventsOverlap = eventsRepository.findDateOverlapForUser(login, event.getDate());
 		if (!eventsOverlap.isEmpty()) {
 			for (Event e : eventsOverlap) {
@@ -440,6 +441,7 @@ public class EventServiceImpl implements EventService {
 		Notification notification = new Notification("Invitation", message, eventId);
 		user.addNotification(notification);
 		userRepository.save(user);
+		eventsRepository.save(event);
 		return new InviteResponseDto(userId, true);
 	}
 

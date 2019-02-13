@@ -84,7 +84,7 @@ public class EventsController {
 		return eventService.inviteToEvent(eventId, userId);
 	}
 	
-	@GetMapping("/allprogresslist")
+	@PostMapping("/allprogresslist")
 	public EventsInProgressResponseDto getAllEventsInProgress(@RequestParam int page, @RequestParam int size) {
 		return eventService.getAllEventsInProgress(page, size);
 	}
