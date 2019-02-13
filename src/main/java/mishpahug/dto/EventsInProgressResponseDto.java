@@ -1,6 +1,8 @@
 package mishpahug.dto;
 
-import java.util.Set;
+import java.util.List;
+
+import org.springframework.data.domain.Sort;
 
 import lombok.AllArgsConstructor;
 import lombok.Builder;
@@ -12,7 +14,7 @@ import lombok.NoArgsConstructor;
 @AllArgsConstructor
 @Builder
 public class EventsInProgressResponseDto {
-	Set<EventResponseDto> content;
+	List<EventResponseDto> content;
 	int totalElements;
 	int totalPages;
 	int size;
@@ -20,5 +22,5 @@ public class EventsInProgressResponseDto {
 	int numberOfElements;
 	boolean first;
 	boolean last;
-	String sort;
+	Sort sort;
 }

@@ -9,12 +9,14 @@ import org.springframework.web.bind.annotation.PostMapping;
 import org.springframework.web.bind.annotation.PutMapping;
 import org.springframework.web.bind.annotation.RequestBody;
 import org.springframework.web.bind.annotation.RequestMapping;
+import org.springframework.web.bind.annotation.RequestParam;
 import org.springframework.web.bind.annotation.RestController;
 
 import mishpahug.dto.CalendarResponseDto;
 import mishpahug.dto.EventCreateDto;
 import mishpahug.dto.EventResponseDto;
 import mishpahug.dto.EventsHistoryListResponseDto;
+import mishpahug.dto.EventsInProgressResponseDto;
 import mishpahug.dto.EventsListResponseDto;
 import mishpahug.dto.InviteResponseDto;
 import mishpahug.dto.SuccessResponseDto;
@@ -33,7 +35,7 @@ public class EventsController {
 	}
 	
 	@GetMapping("/own/{eventId}")
-	public EventResponseDto getOwnEventInfoById(@PathVariable Long eventId) {
+	public EventResponseDto getOwnEventInfoById(@PathVariable long eventId) {
 		return eventService.getOwnEventInfoById(eventId);
 	}
 	
@@ -80,5 +82,10 @@ public class EventsController {
 	@PutMapping("/invitation/{eventId}/{userId}")
 	public InviteResponseDto inviteToEvent(@PathVariable Long eventId, @PathVariable Long userId) {
 		return eventService.inviteToEvent(eventId, userId);
+	}
+	
+	@GetMapping("/allprogresslist")
+	public EventsInProgressResponseDto getAllEventsInProgress(@RequestParam int page, @RequestParam int size) {
+		return eventService.getAllEventsInProgress(page, size);
 	}
 }

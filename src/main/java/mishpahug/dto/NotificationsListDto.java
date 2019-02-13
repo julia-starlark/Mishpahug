@@ -1,6 +1,6 @@
 package mishpahug.dto;
 
-import java.util.Set;
+import java.util.List;
 
 import lombok.AllArgsConstructor;
 import lombok.Builder;
@@ -11,8 +11,6 @@ import lombok.Singular;
 @Getter
 @NoArgsConstructor
 @AllArgsConstructor
-@Builder
 public class NotificationsListDto {
-	@Singular
-	Set<NotificationDto> notifications;
+	List<NotificationDto> notifications;
 }

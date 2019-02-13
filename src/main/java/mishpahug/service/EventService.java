@@ -7,6 +7,7 @@ import mishpahug.dto.EventCreateDto;
 import mishpahug.dto.EventResponseDto;
 import mishpahug.dto.EventStatusResponseDto;
 import mishpahug.dto.EventsHistoryListResponseDto;
+import mishpahug.dto.EventsInProgressResponseDto;
 import mishpahug.dto.EventsListResponseDto;
 import mishpahug.dto.InviteResponseDto;
 import mishpahug.dto.SuccessResponseDto;
@@ -36,4 +37,6 @@ public interface EventService {
 	InviteResponseDto inviteToEvent(Long eventId, Long userId);
 
 	EventStatusResponseDto changeEventStatus(Long eventId);
+	
+	EventsInProgressResponseDto getAllEventsInProgress(int page, int size);
 }

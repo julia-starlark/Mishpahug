@@ -17,4 +17,7 @@ public interface UserAccountRepository extends MongoRepository<User, String> {
 	
 	List<User> findByInvitationsIn(long eventId);
 	
+	/*@Query("{$and:[{'_id': ?0},{'notifications._id':?1}]}")
+	Notification findNotificationById (String userLogin, long notificationId);*/
+	
 }

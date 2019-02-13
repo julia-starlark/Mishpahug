@@ -13,7 +13,7 @@ import lombok.NoArgsConstructor;
 @NoArgsConstructor
 @AllArgsConstructor
 @Builder
-public class NotificationDto {
+public class NotificationDto implements Comparable<NotificationDto>{
 	Long notificationId;
 	String title;
 	String message;
@@ -22,4 +22,18 @@ public class NotificationDto {
 	String type;
 	boolean isRead;
 	Long eventId;
+	
+	@Override
+	public int compareTo(NotificationDto other) {
+		int res = 0;
+		if(this.isRead == false && other.isRead == true) {
+			res = 1;
+		}
+		if(this.isRead == true && other.isRead == false) {
+			res = -1;
+		} else {
+		res = other.getDate().compareTo(this.getDate());
+		}
+		return res;
+	}
 }

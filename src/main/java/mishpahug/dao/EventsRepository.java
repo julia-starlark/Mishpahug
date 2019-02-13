@@ -24,8 +24,8 @@ public interface EventsRepository extends MongoRepository<Event, Long> {
 	@Query("{$and:[{'date': ?1},{'participants':?0}]}")
 	public List<Event> findDateOverlapForUser(String user, LocalDate date);
 	
-	@Query("{'participants':?0}")
-	public List<Event> findEventByParticipant(String participant);
+	@Query("{'subscribers':?0}")
+	public List<Event> findEventBySubscribers(String user);
 	
 	//FIXME how to get boolean
 	@Query("{$and:[{'eventId':{$in:?0}},{'date':?1}]}")

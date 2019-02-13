@@ -1,21 +1,19 @@
 package mishpahug.service;
 
-import mishpahug.dto.NotificationDto;
-import mishpahug.dto.NotificationNewDto;
+import java.security.Principal;
+
 import mishpahug.dto.NotificationsCountDto;
 import mishpahug.dto.NotificationsListDto;
+import mishpahug.dto.SuccessResponseDto;
 
 public interface NotificationService {
 
-	boolean sendNotification(Long userId, NotificationNewDto notificationNewDto);
+	NotificationsListDto getNotificationList(Principal principal);
 
-	NotificationDto getNotification(Long notificationId);
+	NotificationsCountDto getNumberOfUnreadNotifications(Principal principal);
+	
+	SuccessResponseDto readNotification(long notificationId, Principal principal);
+	
+	boolean deleteNotification(long notificationId, Principal principal);
 
-	NotificationsListDto getNotificationList();
-
-	NotificationsCountDto getNumberOfUnreadNotifications();
-
-	boolean updateNotifiation(Long notificationId);
-
-	boolean deleteNotification(Long notificationId);
 }

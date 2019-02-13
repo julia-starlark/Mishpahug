@@ -42,7 +42,7 @@ public class User {
 	Double rate;
 	int numberOfVoters;
 	Set<Long> invitations;
-	Set<Notification> notifications;
+	List<Notification> notifications;
 	@Setter
 	String firebaseToken;
 
@@ -56,7 +56,7 @@ public class User {
 		this.foodPreferences = new ArrayList<>();
 		this.languages = new ArrayList<>();
 		this.invitations = new HashSet<>();
-		this.notifications = new HashSet<>();
+		this.notifications = new ArrayList<>();
 	}
 /**
  * <p>Manages profile avatar and banner. To delete user avatar the first element of the array should be passed as <b>null</b>.
