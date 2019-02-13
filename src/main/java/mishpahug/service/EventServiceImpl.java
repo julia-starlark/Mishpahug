@@ -66,16 +66,15 @@ public class EventServiceImpl implements EventService {
 	@Transactional
 	public SuccessResponseDto addEvent(EventCreateDto eventCreateDto, Principal principal) {
 		Location location = new Location(eventCreateDto.getAddress().getLocation().getLat(),
-				eventCreateDto.getAddress().getLocation().getLng(),
-				eventCreateDto.getAddress().getLocation().getRadius());
-		Address address = new Address(eventCreateDto.getAddress().getCity(), eventCreateDto.getAddress().getPlace_id(),
+				eventCreateDto.getAddress().getLocation().getLng(), 0.);
+						Address address = new Address(eventCreateDto.getAddress().getCity(), eventCreateDto.getAddress().getPlace_id(),
 				location);
 		Event event = new Event(eventCreateDto.getTitle(), eventCreateDto.getHoliday(), eventCreateDto.getConfession(),
 				eventCreateDto.getDate(), eventCreateDto.getTime(), eventCreateDto.getDuration(), address,
 				eventCreateDto.getFood(), eventCreateDto.getDescription(), principal.getName());
-		if (event.getDate().isBefore(LocalDate.now().plusDays(2))) {
+		/*if (event.getDate().isBefore(LocalDate.now().plusDays(2))) {
 			throw new InvalidDataException("Invalid data!");
-		}
+		}*/
 		List<EventDateTimeDto> ownerEvents = eventsRepository.findEventDateTimeByOwner(event.getOwner());
 		LocalDateTime eventStart = LocalDateTime.of(event.getDate(), event.getTime());
 		LocalDateTime eventFinish = LocalDateTime.of(event.getDate(), event.getTime()).plusMinutes(event.getDuration());
@@ -458,29 +457,33 @@ public class EventServiceImpl implements EventService {
 	public EventsInProgressResponseDto getAllEventsInProgress(int page, int size) {
 		Event event = new Event();
 		event.setStatus("in progress");
-		ExampleMatcher matcher = ExampleMatcher.matching().withIgnorePaths("eventId","title", "holiday", "confession", "date", "time", "duration", "address", "food"
-				,"description", "subscribers","participants","voted","owner" );
+		ExampleMatcher matcher = ExampleMatcher.matching().withIgnorePaths("eventId", "title", "holiday", "confession",
+				"date", "time", "duration", "address", "food", "description", "subscribers", "participants", "voted",
+				"owner");
 		Example<Event> example = Example.of(event, matcher);
 		QPageRequest pageRequest = new QPageRequest(page, size);
 		List<Event> content = eventsRepository.findAll(example, pageRequest).getContent();
-		List<EventResponseDto> events = content.stream().map(e -> convertToEventResponseDto(e, convertToOwnerDto(userRepository.findById(e.getOwner()).get())))
+		List<EventResponseDto> events = content.stream()
+				.map(e -> convertToEventResponseDto(e, convertToOwnerDto(userRepository.findById(e.getOwner()).get())))
 				.collect(Collectors.toList());
 		events.forEach(e -> {
-					e.getAddress().setLocation(null);
-					e.getAddress().setPlace_id(null);
-					e.setStatus(null);
-					e.setParticipants(null);
-					e.getOwner().setPhoneNumber(null);
-				});
+			e.getAddress().setLocation(null);
+			e.getAddress().setPlace_id(null);
+			e.setStatus(null);
+			e.setParticipants(null);
+			e.getOwner().setPhoneNumber(null);
+		});
 		int totalElements = content.size();
-		int totalPages = totalElements%size != 0 ? totalElements/size + 1 : totalElements/size;
+		int totalPages = totalElements % size != 0 ? totalElements / size + 1 : totalElements / size;
 		int number = pageRequest.getPageNumber();
 		boolean first = number == 0;
-		boolean last = number+1 == totalPages;
-		int numberOfElements = last ? (totalElements%totalPages == 0? totalElements/totalPages : totalElements%totalPages) : totalElements/totalPages;
+		boolean last = number + 1 == totalPages;
+		int numberOfElements = last
+				? (totalElements % totalPages == 0 ? totalElements / totalPages : totalElements % totalPages)
+				: totalElements / totalPages;
 		Sort sort = pageRequest.getSort();
-		EventsInProgressResponseDto res = new EventsInProgressResponseDto(events, totalElements, totalPages, size, number,
-				numberOfElements, first, last, sort);
+		EventsInProgressResponseDto res = new EventsInProgressResponseDto(events, totalElements, totalPages, size,
+				number, numberOfElements, first, last, sort);
 		return res;
 	}
 
