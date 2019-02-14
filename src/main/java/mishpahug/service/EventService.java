@@ -9,6 +9,7 @@ import mishpahug.dto.EventStatusResponseDto;
 import mishpahug.dto.EventsHistoryListResponseDto;
 import mishpahug.dto.EventsInProgressResponseDto;
 import mishpahug.dto.EventsListResponseDto;
+import mishpahug.dto.FiltersDto;
 import mishpahug.dto.InviteResponseDto;
 import mishpahug.dto.SuccessResponseDto;
 
@@ -38,5 +39,5 @@ public interface EventService {
 
 	EventStatusResponseDto changeEventStatus(Long eventId);
 	
-	EventsInProgressResponseDto getAllEventsInProgress(int page, int size);
+	EventsInProgressResponseDto getAllEventsInProgress(int page, int size, FiltersDto filters);
 }

@@ -18,6 +18,7 @@ import mishpahug.dto.EventResponseDto;
 import mishpahug.dto.EventsHistoryListResponseDto;
 import mishpahug.dto.EventsInProgressResponseDto;
 import mishpahug.dto.EventsListResponseDto;
+import mishpahug.dto.FiltersDto;
 import mishpahug.dto.InviteResponseDto;
 import mishpahug.dto.SuccessResponseDto;
 import mishpahug.service.EventService;
@@ -85,7 +86,7 @@ public class EventsController {
 	}
 	
 	@PostMapping("/allprogresslist")
-	public EventsInProgressResponseDto getAllEventsInProgress(@RequestParam int page, @RequestParam int size) {
-		return eventService.getAllEventsInProgress(page, size);
+	public EventsInProgressResponseDto getAllEventsInProgress(@RequestParam int page, @RequestParam int size, @RequestBody FiltersDto filters) {
+		return eventService.getAllEventsInProgress(page, size, filters);
 	}
 }

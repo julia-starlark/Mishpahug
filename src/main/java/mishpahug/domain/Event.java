@@ -24,12 +24,16 @@ public class Event {
 	@Id
 	long eventId;
 	String title;
+	@Setter
 	String holiday;
+	@Setter
 	String confession;
 	LocalDate date;
 	LocalTime time;
 	int duration;
+	@Setter
 	Address address;
+	@Setter
 	List<String> food;
 	String description;
 	@Setter

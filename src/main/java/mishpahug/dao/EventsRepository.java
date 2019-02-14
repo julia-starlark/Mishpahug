@@ -31,4 +31,10 @@ public interface EventsRepository extends MongoRepository<Event, Long> {
 	@Query("{$and:[{'eventId':{$in:?0}},{'date':?1}]}")
 	public List<Event> findOverlapByDate(Set<Long> eventId, LocalDate date);
 	
+	@Query("{'date':{$gte:?0}}")
+	public List<Event> findEventsByDateFrom(LocalDate dateFrom);
+	
+	@Query("{'date':{$lte:?0}}")
+	public List<Event> findEventsByDateTo(LocalDate dateTo);
+	
 }

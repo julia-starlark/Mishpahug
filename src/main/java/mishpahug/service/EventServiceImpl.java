@@ -18,6 +18,7 @@ import java.util.stream.Collectors;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.data.domain.Example;
 import org.springframework.data.domain.ExampleMatcher;
+import org.springframework.data.domain.Page;
 import org.springframework.data.domain.Sort;
 import org.springframework.data.querydsl.QPageRequest;
 import org.springframework.stereotype.Service;
@@ -42,6 +43,7 @@ import mishpahug.dto.EventStatusResponseDto;
 import mishpahug.dto.EventsHistoryListResponseDto;
 import mishpahug.dto.EventsInProgressResponseDto;
 import mishpahug.dto.EventsListResponseDto;
+import mishpahug.dto.FiltersDto;
 import mishpahug.dto.InviteResponseDto;
 import mishpahug.dto.LocationDto;
 import mishpahug.dto.OwnerDto;
@@ -67,14 +69,16 @@ public class EventServiceImpl implements EventService {
 	public SuccessResponseDto addEvent(EventCreateDto eventCreateDto, Principal principal) {
 		Location location = new Location(eventCreateDto.getAddress().getLocation().getLat(),
 				eventCreateDto.getAddress().getLocation().getLng(), 0.);
-						Address address = new Address(eventCreateDto.getAddress().getCity(), eventCreateDto.getAddress().getPlace_id(),
+		Address address = new Address(eventCreateDto.getAddress().getCity(), eventCreateDto.getAddress().getPlace_id(),
 				location);
 		Event event = new Event(eventCreateDto.getTitle(), eventCreateDto.getHoliday(), eventCreateDto.getConfession(),
 				eventCreateDto.getDate(), eventCreateDto.getTime(), eventCreateDto.getDuration(), address,
 				eventCreateDto.getFood(), eventCreateDto.getDescription(), principal.getName());
-		/*if (event.getDate().isBefore(LocalDate.now().plusDays(2))) {
+
+		if (event.getDate().isBefore(LocalDate.now().plusDays(2))) {
 			throw new InvalidDataException("Invalid data!");
-		}*/
+		}
+
 		List<EventDateTimeDto> ownerEvents = eventsRepository.findEventDateTimeByOwner(event.getOwner());
 		LocalDateTime eventStart = LocalDateTime.of(event.getDate(), event.getTime());
 		LocalDateTime eventFinish = LocalDateTime.of(event.getDate(), event.getTime()).plusMinutes(event.getDuration());
@@ -88,7 +92,7 @@ public class EventServiceImpl implements EventService {
 			throw new ConflictException("This user has already created the event on this date and time!");
 		}
 		eventsRepository.save(event);
-		//checkForPendingStatus(event);
+		checkForPendingStatus(event);
 		changeEventStatusToDone(event);
 		return new SuccessResponseDto("Event is created");
 
@@ -456,18 +460,14 @@ public class EventServiceImpl implements EventService {
 	}
 
 	@Override
-	public EventsInProgressResponseDto getAllEventsInProgress(int page, int size) {
-		Event event = new Event();
-		event.setStatus("in progress");
-		ExampleMatcher matcher = ExampleMatcher.matching().withIgnorePaths("eventId", "title", "holiday", "confession",
-				"date", "time", "duration", "address", "food", "description", "subscribers", "participants", "voted",
-				"owner");
-		Example<Event> example = Example.of(event, matcher);
-		QPageRequest pageRequest = new QPageRequest(page, size);
-		List<Event> content = eventsRepository.findAll(example, pageRequest).getContent();
-		List<EventResponseDto> events = content.stream()
+	public EventsInProgressResponseDto getAllEventsInProgress(int page, int size, FiltersDto filters) {
+		QPageRequest pageRequest = new QPageRequest (page, size);
+		List<Event> eventsInProg = getEventsByExample(filters);
+		/*Example<Event> example = Example.of(event, matcher);
+		Page<Event> content = eventsRepository.findAll(example,pageRequest);*/
+		List<EventResponseDto> events = eventsInProg.stream()
 				.map(e -> convertToEventResponseDto(e, convertToOwnerDto(userRepository.findById(e.getOwner()).get())))
-				.collect(Collectors.toList());
+				.sorted().collect(Collectors.toList());
 		events.forEach(e -> {
 			e.getAddress().setLocation(null);
 			e.getAddress().setPlace_id(null);
@@ -475,18 +475,50 @@ public class EventServiceImpl implements EventService {
 			e.setParticipants(null);
 			e.getOwner().setPhoneNumber(null);
 		});
-		int totalElements = content.size();
+		int totalElements = eventsInProg.size();
 		int totalPages = totalElements % size != 0 ? totalElements / size + 1 : totalElements / size;
 		int number = pageRequest.getPageNumber();
 		boolean first = number == 0;
-		boolean last = number + 1 == totalPages;
+		boolean last = number + 1 == totalPages; // true
 		int numberOfElements = last
-				? (totalElements % totalPages == 0 ? totalElements / totalPages : totalElements % totalPages)
-				: totalElements / totalPages;
+				? (totalElements % size == 0 ? totalElements / (totalPages - 1) : totalElements % size)
+				: size;
 		Sort sort = pageRequest.getSort();
 		EventsInProgressResponseDto res = new EventsInProgressResponseDto(events, totalElements, totalPages, size,
 				number, numberOfElements, first, last, sort);
 		return res;
+	}
+
+	private List<Event> getEventsByExample(FiltersDto filters) {
+		Event event = new Event();
+		event.setStatus("in progress");
+		if (filters.getFilters() != null) {
+			event.setHoliday(filters.getFilters().getHolidays());
+			event.setConfession(filters.getFilters().getConfession());
+		}
+		if (filters.getLocation() != null) {
+			event.setAddress(new Address(null, null, new Location(filters.getLocation().getLat(),
+					filters.getLocation().getLng(), filters.getLocation().getRadius())));
+		}
+		ExampleMatcher matcher = ExampleMatcher.matching().withIgnorePaths("eventId", "title", "date", "time",
+				"duration", "description", "subscribers", "participants", "voted", "owner", "food")
+				.withIgnoreNullValues();
+		Example<Event> example = Example.of(event, matcher);
+		List<Event> eventsInProg = eventsRepository.findAll(example);
+		String food = filters.getFilters().getFood();
+		if (food != null) {
+			eventsInProg = eventsInProg.stream().filter(e -> e.getFood().contains(food)).collect(Collectors.toList());
+		}
+		LocalDate dateFrom = filters.getFilters().getDateFrom();
+		if (dateFrom != null) {
+			eventsInProg = eventsInProg.stream().filter(e -> e.getDate().isAfter(dateFrom))
+					.collect(Collectors.toList());
+		}
+		LocalDate dateTo = filters.getFilters().getDateTo();
+		if (dateTo != null) {
+			eventsInProg = eventsInProg.stream().filter(e -> e.getDate().isBefore(dateTo)).collect(Collectors.toList());
+		}
+		return eventsInProg;
 	}
 
 }

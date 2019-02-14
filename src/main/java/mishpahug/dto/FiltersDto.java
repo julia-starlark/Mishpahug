@@ -14,11 +14,19 @@ import lombok.NoArgsConstructor;
 @AllArgsConstructor
 @Builder
 public class FiltersDto {
-	@JsonFormat(pattern="yyyy-MM-dd")
-	LocalDate dateFrom;
-	@JsonFormat(pattern="yyyy-MM-dd")
-	LocalDate dateTo;
-	String holidays;
-	String confession;
-	String food;
+	LocationDto location;
+	Filters filters;
+
+	@Getter
+	@NoArgsConstructor
+	@AllArgsConstructor
+	public class Filters {
+		@JsonFormat(pattern = "yyyy-MM-dd")
+		LocalDate dateFrom;
+		@JsonFormat(pattern = "yyyy-MM-dd")
+		LocalDate dateTo;
+		String holidays;
+		String confession;
+		String food;
+	}
 }
