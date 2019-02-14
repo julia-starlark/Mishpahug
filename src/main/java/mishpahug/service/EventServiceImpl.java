@@ -19,7 +19,10 @@ import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.data.domain.Example;
 import org.springframework.data.domain.ExampleMatcher;
 import org.springframework.data.domain.Page;
+import org.springframework.data.domain.PageRequest;
+import org.springframework.data.domain.Pageable;
 import org.springframework.data.domain.Sort;
+import org.springframework.data.mongodb.core.query.Query;
 import org.springframework.data.querydsl.QPageRequest;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
@@ -462,9 +465,13 @@ public class EventServiceImpl implements EventService {
 	@Override
 	public EventsInProgressResponseDto getAllEventsInProgress(int page, int size, FiltersDto filters) {
 		QPageRequest pageRequest = new QPageRequest (page, size);
+		/*Pageable pageableRequest = PageRequest.of(page, size);
+		Query query = new Query();
+		query.with(pageableRequest);*/
 		List<Event> eventsInProg = getEventsByExample(filters);
+		
 		/*Example<Event> example = Example.of(event, matcher);
-		Page<Event> content = eventsRepository.findAll(example,pageRequest);*/
+		Page<Event> content = eventsRepository.findAll(example,pageRequest).;*/
 		List<EventResponseDto> events = eventsInProg.stream()
 				.map(e -> convertToEventResponseDto(e, convertToOwnerDto(userRepository.findById(e.getOwner()).get())))
 				.sorted().collect(Collectors.toList());

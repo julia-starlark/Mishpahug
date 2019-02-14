@@ -16,7 +16,7 @@ public interface EventsRepository extends MongoRepository<Event, Long> {
 	public List<EventDateTimeDto> findEventDateTimeByOwner(String owner);
 
 	//{$or: [{'date':{$gte:?0}},{'date':{$lte:?1}}]}
-	@Query(value = "{$and: [{$or:[{'owner':?2},{'participants':?2}]},{$or: [{'date':{$gte:?0,$lte:?1}}]}]}")
+	@Query(value = "{$and: [{$or:[{'owner':?2},{'subscribers':?2}]},{$or: [{'date':{$gte:?0,$lte:?1}}]}]}")
 	public List<EventForCalendarDto> findEventByMonth(LocalDate dateFrom, LocalDate dateTo, String login);
 
 	public List<Event> findEventByOwner(String owner);
