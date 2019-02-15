@@ -1,5 +1,7 @@
 package mishpahug.domain;
 
+import org.springframework.data.mongodb.core.index.GeoSpatialIndexed;
+
 import lombok.AllArgsConstructor;
 import lombok.EqualsAndHashCode;
 import lombok.Getter;
@@ -14,5 +16,6 @@ public class Address {
 	String city;
 	String place_id;
 	@Setter
+	@GeoSpatialIndexed
 	Location location;
 }

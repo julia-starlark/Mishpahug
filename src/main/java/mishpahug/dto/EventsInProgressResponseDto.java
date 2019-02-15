@@ -15,7 +15,7 @@ import lombok.NoArgsConstructor;
 @Builder
 public class EventsInProgressResponseDto {
 	List<EventResponseDto> content;
-	int totalElements;
+	long totalElements;
 	int totalPages;
 	int size;
 	Integer number;

@@ -16,18 +16,13 @@ import java.util.concurrent.TimeUnit;
 import java.util.stream.Collectors;
 
 import org.springframework.beans.factory.annotation.Autowired;
-import org.springframework.data.domain.Example;
-import org.springframework.data.domain.ExampleMatcher;
 import org.springframework.data.domain.Page;
-import org.springframework.data.domain.PageRequest;
-import org.springframework.data.domain.Pageable;
 import org.springframework.data.domain.Sort;
-import org.springframework.data.mongodb.core.query.Query;
-import org.springframework.data.querydsl.QPageRequest;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
 import mishpahug.dao.ArchiveRepository;
+import mishpahug.dao.DynamicQuery;
 import mishpahug.dao.EventsRepository;
 import mishpahug.dao.UserAccountRepository;
 import mishpahug.domain.Address;
@@ -464,15 +459,17 @@ public class EventServiceImpl implements EventService {
 
 	@Override
 	public EventsInProgressResponseDto getAllEventsInProgress(int page, int size, FiltersDto filters) {
-		QPageRequest pageRequest = new QPageRequest (page, size);
-		/*Pageable pageableRequest = PageRequest.of(page, size);
-		Query query = new Query();
-		query.with(pageableRequest);*/
-		List<Event> eventsInProg = getEventsByExample(filters);
-		
-		/*Example<Event> example = Example.of(event, matcher);
-		Page<Event> content = eventsRepository.findAll(example,pageRequest).;*/
-		List<EventResponseDto> events = eventsInProg.stream()
+		Page<Event> eventsInProg = eventsRepository.query(DynamicQuery.builder()
+				.confession(filters.getFilters().getConfession())
+				.dateFrom(filters.getFilters().getDateFrom())
+				.dateTo(filters.getFilters().getDateTo())
+				.holiday(filters.getFilters().getHolidays())
+				.food(filters.getFilters().getFood())
+				.lat(filters.getLocation().getLat())
+				.lng(filters.getLocation().getLng())
+				.radius(filters.getLocation().getRadius())
+				.build(), page, size);
+		List<EventResponseDto> events = eventsInProg.getContent().stream()
 				.map(e -> convertToEventResponseDto(e, convertToOwnerDto(userRepository.findById(e.getOwner()).get())))
 				.sorted().collect(Collectors.toList());
 		events.forEach(e -> {
@@ -482,50 +479,16 @@ public class EventServiceImpl implements EventService {
 			e.setParticipants(null);
 			e.getOwner().setPhoneNumber(null);
 		});
-		int totalElements = eventsInProg.size();
-		int totalPages = totalElements % size != 0 ? totalElements / size + 1 : totalElements / size;
-		int number = pageRequest.getPageNumber();
-		boolean first = number == 0;
-		boolean last = number + 1 == totalPages; // true
-		int numberOfElements = last
-				? (totalElements % size == 0 ? totalElements / (totalPages - 1) : totalElements % size)
-				: size;
-		Sort sort = pageRequest.getSort();
+		long totalElements = eventsInProg.getTotalElements();
+		int totalPages = eventsInProg.getTotalPages();
+		int number = eventsInProg.getNumber();
+		boolean first = eventsInProg.isFirst();
+		boolean last = eventsInProg.isLast(); 
+		int numberOfElements = eventsInProg.getNumberOfElements();
+		Sort sort = eventsInProg.getSort();
 		EventsInProgressResponseDto res = new EventsInProgressResponseDto(events, totalElements, totalPages, size,
 				number, numberOfElements, first, last, sort);
 		return res;
-	}
-
-	private List<Event> getEventsByExample(FiltersDto filters) {
-		Event event = new Event();
-		event.setStatus("in progress");
-		if (filters.getFilters() != null) {
-			event.setHoliday(filters.getFilters().getHolidays());
-			event.setConfession(filters.getFilters().getConfession());
-		}
-		if (filters.getLocation() != null) {
-			event.setAddress(new Address(null, null, new Location(filters.getLocation().getLat(),
-					filters.getLocation().getLng(), filters.getLocation().getRadius())));
-		}
-		ExampleMatcher matcher = ExampleMatcher.matching().withIgnorePaths("eventId", "title", "date", "time",
-				"duration", "description", "subscribers", "participants", "voted", "owner", "food")
-				.withIgnoreNullValues();
-		Example<Event> example = Example.of(event, matcher);
-		List<Event> eventsInProg = eventsRepository.findAll(example);
-		String food = filters.getFilters().getFood();
-		if (food != null) {
-			eventsInProg = eventsInProg.stream().filter(e -> e.getFood().contains(food)).collect(Collectors.toList());
-		}
-		LocalDate dateFrom = filters.getFilters().getDateFrom();
-		if (dateFrom != null) {
-			eventsInProg = eventsInProg.stream().filter(e -> e.getDate().isAfter(dateFrom))
-					.collect(Collectors.toList());
-		}
-		LocalDate dateTo = filters.getFilters().getDateTo();
-		if (dateTo != null) {
-			eventsInProg = eventsInProg.stream().filter(e -> e.getDate().isBefore(dateTo)).collect(Collectors.toList());
-		}
-		return eventsInProg;
 	}
 
 }

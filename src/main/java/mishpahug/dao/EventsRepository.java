@@ -11,7 +11,7 @@ import mishpahug.domain.Event;
 import mishpahug.dto.EventDateTimeDto;
 import mishpahug.dto.EventForCalendarDto;
 
-public interface EventsRepository extends MongoRepository<Event, Long> {
+public interface EventsRepository extends MongoRepository<Event, Long>, EventsRepositoryCustom {
 
 	public List<EventDateTimeDto> findEventDateTimeByOwner(String owner);
 
