@@ -1,6 +1,7 @@
 package mishpahug.domain;
 
 import java.time.LocalDate;
+import java.time.LocalDateTime;
 import java.time.LocalTime;
 import java.util.List;
 import java.util.Set;
@@ -28,8 +29,8 @@ public class EventArchive {
 	String title;
 	String holiday;
 	String confession;
-	LocalDate date;
-	LocalTime time;
+	LocalDateTime dateTimeStart;
+	LocalDateTime dateTimeFinish;
 	int duration;
 	Address address;
 	List<String> food;

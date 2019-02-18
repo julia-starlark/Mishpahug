@@ -1,6 +1,7 @@
 package mishpahug.domain;
 
 import java.time.LocalDate;
+import java.time.LocalDateTime;
 import java.time.LocalTime;
 import java.util.HashSet;
 import java.util.List;
@@ -28,8 +29,8 @@ public class Event {
 	String holiday;
 	@Setter
 	String confession;
-	LocalDate date;
-	LocalTime time;
+	LocalDateTime dateTimeStart;
+	LocalDateTime dateTimeFinish;
 	int duration;
 	@Setter
 	Address address;
@@ -50,8 +51,9 @@ public class Event {
 		this.title = title;
 		this.holiday = holiday;
 		this.confession = confession;
-		this.date = date;
-		this.time = time;
+		this.dateTimeStart = LocalDateTime.of(date, time);
+		this.dateTimeFinish = dateTimeStart.plusMinutes(duration);
+		//this.time = time;
 		this.duration = duration;
 		this.address = address;
 		this.food = food;

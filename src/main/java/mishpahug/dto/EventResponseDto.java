@@ -29,6 +29,8 @@ public class EventResponseDto implements Comparable<EventResponseDto>{
 	String title;
 	String holiday;
 	String confession;
+	@JsonInclude(Include.NON_NULL)
+	@Setter
 	@JsonFormat(pattern = "yyyy-MM-dd")
 	LocalDate date;
 	@JsonInclude(Include.NON_NULL)

@@ -1,5 +1,7 @@
 package mishpahug.dao;
 
+import java.time.LocalDateTime;
+import java.time.LocalTime;
 import java.util.ArrayList;
 import java.util.List;
 
@@ -7,6 +9,7 @@ import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.PageRequest;
 import org.springframework.data.domain.Pageable;
+import org.springframework.data.geo.Circle;
 import org.springframework.data.geo.Point;
 import org.springframework.data.mongodb.core.MongoTemplate;
 import org.springframework.data.mongodb.core.query.Criteria;
@@ -29,11 +32,16 @@ public class EventsRepositoryImpl implements EventsRepositoryCustom {
 		final Query query = new Query();
 		Pageable pageableRequest = PageRequest.of(page, size);
 		final List<Criteria> criteria = new ArrayList<>();
+		//FIXME
 		if (dynamicQuery.getDateFrom() != null) {
-			criteria.add(Criteria.where("date").gte(dynamicQuery.getDateFrom()));
+			LocalDateTime from = LocalDateTime.of(dynamicQuery.getDateFrom(), LocalTime.of(0,0,0));
+			System.out.println(from);
+			criteria.add(Criteria.where("dateTimeStart").gte(from));
 		}
 		if (dynamicQuery.getDateTo() != null) {
-			criteria.add(Criteria.where("date").lte(dynamicQuery.getDateTo()));
+			LocalDateTime to = LocalDateTime.of(dynamicQuery.getDateTo(), LocalTime.of(23,59,59));
+			System.out.println(to);
+			criteria.add(Criteria.where("dateTimeStart").lte(to));
 		}
 		if (!dynamicQuery.getConfession().equals("")) {
 			criteria.add(Criteria.where("confession").is(dynamicQuery.getConfession()));
@@ -46,8 +54,8 @@ public class EventsRepositoryImpl implements EventsRepositoryCustom {
 		}
 		if (dynamicQuery.getLat() != null && dynamicQuery.getLng() != null && dynamicQuery.getRadius() != null) {
 			criteria.add(
-					Criteria.where("address.location").near(new Point(dynamicQuery.getLat(), dynamicQuery.getLng()))
-							.minDistance(0).maxDistance(dynamicQuery.getRadius()));
+					Criteria.where("address.location")
+					.withinSphere(new Circle(new Point(dynamicQuery.getLat(), dynamicQuery.getLng()), dynamicQuery.getRadius())));
 		}
 		if (!criteria.isEmpty()) {
 			query.addCriteria(new Criteria().andOperator(criteria.toArray(new Criteria[criteria.size()])));
@@ -57,4 +65,47 @@ public class EventsRepositoryImpl implements EventsRepositoryCustom {
 		return PageableExecutionUtils.getPage(events, pageableRequest, () -> mongoTemplate.count(query, Event.class));
 	}
 
+	@Override
+	public boolean checkForEventOverlap(String user, LocalDateTime eventStart, LocalDateTime eventFinish,
+			boolean flag) {
+		Query query = new Query();
+		List<Criteria> criteria = new ArrayList<>();
+		if (flag) {
+			criteria.add(Criteria.where("owner").is(user));
+		} else {
+			criteria.add(Criteria.where("participants").in(user));
+		}
+		Criteria cr1 = new Criteria().andOperator(Criteria.where("dateTimeStart").lte(eventStart),
+				Criteria.where("dateTimeFinish").gte(eventStart));
+		Criteria cr2 = new Criteria().andOperator(Criteria.where("dateTimeStart").gte(eventStart),
+				Criteria.where("dateTimeFinish").lte(eventFinish));
+		Criteria cr3 = new Criteria().andOperator(Criteria.where("dateTimeStart").lte(eventFinish),
+				Criteria.where("dateTimeFinish").gte(eventFinish));
+		criteria.add(new Criteria().orOperator(cr1, cr2, cr3));
+		query.addCriteria(new Criteria().andOperator(criteria.toArray(new Criteria[criteria.size()])));
+		// System.out.println(query);
+		long res = mongoTemplate.count(query, Event.class, "events");
+		return res != 0;
+	}
+
+	/*@Override
+	public void updateOverLapingEvents(String user, LocalDateTime eventStart, LocalDateTime eventFinish) {
+		Query query = new Query();
+		List<Criteria> criteria = new ArrayList<>();
+		criteria.add(Criteria.where("participants").in(user));
+		Criteria cr1 = new Criteria().andOperator(Criteria.where("dateTimeStart").lte(eventStart),
+				Criteria.where("dateTimeFinish").gte(eventFinish));
+		Criteria cr2 = new Criteria().andOperator(Criteria.where("dateTimeStart").gte(eventStart),
+				Criteria.where("dateTimeFinish").lte(eventFinish));
+		Criteria cr3 = new Criteria().andOperator(Criteria.where("dateTimeStart").gte(eventStart),
+				Criteria.where("dateTimeFinish").gte(eventFinish));
+		Criteria cr4 = new Criteria().andOperator(Criteria.where("dateTimeStart").lte(eventStart),
+				Criteria.where("dateTimeFinish").lte(eventFinish));
+		criteria.add(new Criteria().orOperator(cr1, cr2, cr3, cr4));
+		query.addCriteria(new Criteria().andOperator(criteria.toArray(new Criteria[criteria.size()])));
+		Update update = new Update().pull("subscribers", user);
+		mongoTemplate.updateMulti(query, update, Event.class);
+		
+	}
+*/
 }

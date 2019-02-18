@@ -4,9 +4,10 @@ import java.security.Principal;
 import java.time.Duration;
 import java.time.LocalDate;
 import java.time.LocalDateTime;
+import java.time.LocalTime;
 import java.time.Period;
+import java.time.format.DateTimeFormatter;
 import java.util.ArrayList;
-import java.util.Comparator;
 import java.util.HashSet;
 import java.util.List;
 import java.util.Set;
@@ -34,7 +35,6 @@ import mishpahug.domain.User;
 import mishpahug.dto.AddressDto;
 import mishpahug.dto.CalendarResponseDto;
 import mishpahug.dto.EventCreateDto;
-import mishpahug.dto.EventDateTimeDto;
 import mishpahug.dto.EventForCalendarDto;
 import mishpahug.dto.EventResponseDto;
 import mishpahug.dto.EventStatusResponseDto;
@@ -51,6 +51,7 @@ import mishpahug.exceptions.ConflictException;
 import mishpahug.exceptions.InvalidDataException;
 
 @Service
+// @EnableScheduling
 public class EventServiceImpl implements EventService {
 
 	@Autowired
@@ -65,53 +66,45 @@ public class EventServiceImpl implements EventService {
 	@Override
 	@Transactional
 	public SuccessResponseDto addEvent(EventCreateDto eventCreateDto, Principal principal) {
+		String owner = principal.getName();
 		Location location = new Location(eventCreateDto.getAddress().getLocation().getLat(),
 				eventCreateDto.getAddress().getLocation().getLng(), 0.);
 		Address address = new Address(eventCreateDto.getAddress().getCity(), eventCreateDto.getAddress().getPlace_id(),
 				location);
 		Event event = new Event(eventCreateDto.getTitle(), eventCreateDto.getHoliday(), eventCreateDto.getConfession(),
 				eventCreateDto.getDate(), eventCreateDto.getTime(), eventCreateDto.getDuration(), address,
-				eventCreateDto.getFood(), eventCreateDto.getDescription(), principal.getName());
-
-		if (event.getDate().isBefore(LocalDate.now().plusDays(2))) {
+				eventCreateDto.getFood(), eventCreateDto.getDescription(), owner);
+		if (event.getDateTimeStart().isBefore(LocalDateTime.now().plusDays(2))) {
 			throw new InvalidDataException("Invalid data!");
 		}
-
-		List<EventDateTimeDto> ownerEvents = eventsRepository.findEventDateTimeByOwner(event.getOwner());
-		LocalDateTime eventStart = LocalDateTime.of(event.getDate(), event.getTime());
-		LocalDateTime eventFinish = LocalDateTime.of(event.getDate(), event.getTime()).plusMinutes(event.getDuration());
-		List<EventDateTimeDto> eventOverlap = ownerEvents.stream()
-				.filter(e -> (LocalDateTime.of(e.getDate(), e.getTime()).isBefore(eventStart)
-						&& LocalDateTime.of(e.getDate(), e.getTime()).plusMinutes(e.getDuration()).isAfter(eventStart))
-						|| (LocalDateTime.of(e.getDate(), e.getTime()).isAfter(eventStart) && LocalDateTime
-								.of(e.getDate(), e.getTime()).plusMinutes(e.getDuration()).isBefore(eventFinish)))
-				.collect(Collectors.toList());
-		if (!eventOverlap.isEmpty()) {
+		if (eventsRepository.checkForEventOverlap(owner, event.getDateTimeStart(), event.getDateTimeFinish(), true)) {
 			throw new ConflictException("This user has already created the event on this date and time!");
 		}
 		eventsRepository.save(event);
-		checkForPendingStatus(event);
-		changeEventStatusToDone(event);
+		checkForPendingStatus(event.getEventId(), event.getDateTimeStart());
+		changeEventStatusToDone(event.getEventId(), event.getDateTimeFinish());
 		return new SuccessResponseDto("Event is created");
 
 	}
 
-	private void changeEventStatusToDone(Event event) {
+	private void changeEventStatusToDone(long eventId, LocalDateTime eventFinish) {
 		ScheduledExecutorService scheduler = Executors.newScheduledThreadPool(1);
-		LocalDateTime eventFinish = LocalDateTime.of(event.getDate(), event.getTime()).plusMinutes(event.getDuration());
 		Duration duration = Duration.between(LocalDateTime.now(), eventFinish);
 		long delay = duration.toMinutes();
 		scheduler.schedule(new Runnable() {
 			@Override
 			public void run() {
+				Event event = eventsRepository.findById(eventId).get();
 				if (!event.getStatus().equals("not done")) {
 					event.setStatus("done");
 				}
+				Set<String> particip = event.getParticipants();
 				archiveRepository.save(convertToEventArchive(event));
 				eventsRepository.delete(event);
-				List<User> participants = userRepository.findByInvitationsIn(event.getEventId());
+				List<User> participants = userRepository.findParticipants(particip, eventId);
 				if (!participants.isEmpty()) {
 					participants.forEach(u -> u.deleteInvitation(event.getEventId()));
+					participants.forEach(u -> u.addNotification(createNotification("Vote for Event", event)));
 					userRepository.saveAll(participants);
 				}
 			}
@@ -119,19 +112,25 @@ public class EventServiceImpl implements EventService {
 		}, delay, TimeUnit.MINUTES);
 	}
 
-	private void checkForPendingStatus(Event event) {
+	protected Notification createNotification(String title, Event event) {
+		String message = "Don't forget to vote for event " + event.getTitle() + " that you have attended.";
+		return new Notification(title, message, event.getEventId());
+	}
+
+	private void checkForPendingStatus(long eventId, LocalDateTime eventStart) {
 		ScheduledExecutorService scheduler = Executors.newScheduledThreadPool(1);
-		LocalDateTime eventStart = LocalDateTime.of(event.getDate(), event.getTime());
 		LocalDateTime changeToPending = eventStart.minusHours(24);
 		Duration duration = Duration.between(LocalDateTime.now(), changeToPending);
 		long delay = duration.toMinutes();
 		scheduler.schedule(new Runnable() {
 			@Override
 			public void run() {
+				Event event = eventsRepository.findById(eventId).get();
 				if (!event.getStatus().equals("pending")) {
 					event.setStatus("not done");
 					String message = "We are sorry to inform you that the event " + event.getTitle()
-							+ " that was suppossed to take place on " + event.getDate() + " was cancelled.";
+							+ " that was suppossed to take place on "
+							+ eventStart.format(DateTimeFormatter.ISO_LOCAL_DATE) + " was cancelled.";
 					Notification notification = new Notification("Event Cancelation", message, event.getEventId());
 					Set<String> eventSubscribers = event.getSubscribers();
 					eventSubscribers.stream().map(s -> userRepository.findById(s).get()).forEach(u -> {
@@ -147,15 +146,14 @@ public class EventServiceImpl implements EventService {
 
 	private EventArchive convertToEventArchive(Event event) {
 		return EventArchive.builder().eventId(event.getEventId()).title(event.getTitle()).holiday(event.getHoliday())
-				.confession(event.getConfession()).date(event.getDate()).time(event.getTime())
-				.duration(event.getDuration()).address(event.getAddress()).food(event.getFood())
-				.description(event.getDescription()).status(event.getStatus()).participants(event.getParticipants())
+				.confession(event.getConfession()).dateTimeStart(event.getDateTimeStart())
+				.dateTimeFinish(event.getDateTimeFinish()).duration(event.getDuration()).address(event.getAddress())
+				.food(event.getFood()).description(event.getDescription()).status(event.getStatus())
+				.participants(event.getParticipants()).subscribers(event.getSubscribers()).voted(event.getVoted())
 				.owner(event.getOwner()).build();
 	}
 
 	@Override
-	// FIXME check web security (throw "User is not associated with the event!"
-	// exception)
 	public EventResponseDto getOwnEventInfoById(Long eventId) {
 		Event event = eventsRepository.findById(eventId).orElse(null);
 		Set<User> users = event.getSubscribers().stream().map(id -> userRepository.findById(id).get())
@@ -174,10 +172,13 @@ public class EventServiceImpl implements EventService {
 	}
 
 	private EventResponseDto convertToEventResponseDto(Event event, Set<ParticipantDto> participants) {
+		LocalDateTime eventstart = event.getDateTimeStart();
 		return EventResponseDto.builder().eventId(event.getEventId()).title(event.getTitle())
-				.holiday(event.getHoliday()).confession(event.getConfession()).date(event.getDate())
-				.time(event.getTime()).duration(event.getDuration()).food(event.getFood())
-				.description(event.getDescription()).status(event.getStatus()).participants(participants).build();
+				.holiday(event.getHoliday()).confession(event.getConfession())
+				.date(LocalDate.of(eventstart.getYear(), eventstart.getMonth(), eventstart.getDayOfMonth()))
+				.time(LocalTime.of(eventstart.getHour(), eventstart.getMinute())).duration(event.getDuration())
+				.food(event.getFood()).description(event.getDescription()).status(event.getStatus())
+				.participants(participants).build();
 	}
 
 	private ParticipantDto convertToParticipantDto(User u, Event event) {
@@ -190,8 +191,6 @@ public class EventServiceImpl implements EventService {
 	}
 
 	@Override
-	// FIXME check web security (throw "User is not associated with the event!"
-	// exception)
 	public EventResponseDto getSubscribedEventById(Long eventId) {
 		Event event = eventsRepository.findById(eventId).orElse(null);
 		Address eventAddress = event.getAddress();
@@ -225,9 +224,12 @@ public class EventServiceImpl implements EventService {
 		LocationDto location = LocationDto.builder().lat(eventLocation.getLat()).lng(eventLocation.getLng()).build();
 		AddressDto address = AddressDto.builder().city(eventAddress.getCity()).place_id(eventAddress.getPlace_id())
 				.location(location).build();
+		LocalDateTime eventstart = event.getDateTimeStart();
 		return EventResponseDto.builder().eventId(event.getEventId()).title(event.getTitle())
-				.holiday(event.getHoliday()).confession(event.getConfession()).date(event.getDate())
-				.time(event.getTime()).duration(event.getDuration()).address(address).food(event.getFood())
+				.holiday(event.getHoliday()).confession(event.getConfession())
+				.date(LocalDate.of(eventstart.getYear(), eventstart.getMonth(), eventstart.getDayOfMonth()))
+				.time(LocalTime.of(eventstart.getHour(), eventstart.getMinute())).duration(event.getDuration())
+				.duration(event.getDuration()).address(address).food(event.getFood())
 				.description(event.getDescription()).status(event.getStatus()).owner(owner).build();
 	}
 
@@ -281,8 +283,14 @@ public class EventServiceImpl implements EventService {
 
 	@Override
 	public EventsHistoryListResponseDto getOwnDoneEventsList(Principal principal) {
-		List<EventResponseDto> ownEvents = archiveRepository.findByOwner(principal.getName());
-		ownEvents.sort(new EventsDateDescendingComparator());
+		List<Event> myEvents = archiveRepository.findByOwner(principal.getName());
+		List<EventResponseDto> ownEvents = myEvents.stream()
+				.map(e -> EventResponseDto.builder().eventId(e.getEventId()).title(e.getTitle()).holiday(e.getHoliday())
+						.confession(e.getConfession())
+						.date(LocalDate.of(e.getDateTimeStart().getYear(), e.getDateTimeStart().getMonth(),
+								e.getDateTimeStart().getDayOfMonth()))
+						.food(e.getFood()).description(e.getDescription()).status(e.getStatus()).build())
+				.sorted((e1, e2) -> e2.getDate().compareTo(e1.getDate())).collect(Collectors.toList());
 		EventsHistoryListResponseDto events = new EventsHistoryListResponseDto(ownEvents);
 		return events;
 	}
@@ -303,14 +311,6 @@ public class EventServiceImpl implements EventService {
 						e.setFood(null);
 						subcribedEvents.add(e);
 					});
-			/*
-			 * for (Event e : eventsArchive) { User owner =
-			 * userRepository.findById(e.getOwner()).get(); EventResponseDto eventDto =
-			 * convertToEventResponseDto(e, convertToOwnerDto(owner));
-			 * eventDto.getOwner().setPhoneNumber(null); eventDto.setTime(null);
-			 * eventDto.setDuration(null); eventDto.setAddress(null);
-			 * eventDto.setFood(null); subcribedEvents.add(eventDto); }
-			 */
 		}
 		List<Event> events = eventsRepository.findEventBySubscribers(userLogin);
 		if (!events.isEmpty()) {
@@ -324,32 +324,9 @@ public class EventServiceImpl implements EventService {
 						}
 						subcribedEvents.add(e);
 					});
-			/*
-			 * for (Event e : events) { User owner =
-			 * userRepository.findById(e.getOwner()).get(); OwnerDto ownerDto =
-			 * convertToOwnerDto(owner); EventResponseDto eventDto =
-			 * convertToEventResponseDto(e, ownerDto); if
-			 * (e.getStatus().equals("in progress")) {
-			 * eventDto.getOwner().setPhoneNumber(null);
-			 * eventDto.getAddress().setLocation(null);
-			 * eventDto.getAddress().setPlace_id(null); } subcribedEvents.add(eventDto); }
-			 */
 		}
 		EventsListResponseDto eventsList = new EventsListResponseDto(subcribedEvents);
 		return eventsList;
-	}
-
-	private class EventsDateDescendingComparator implements Comparator<EventResponseDto> {
-
-		@Override
-		public int compare(EventResponseDto e1, EventResponseDto e2) {
-			int res = e2.getDate().compareTo(e1.getDate());
-			if (res == 0) {
-				return e2.getTime().compareTo(e1.getTime());
-			}
-			return res;
-		}
-
 	}
 
 	@Override
@@ -357,17 +334,15 @@ public class EventServiceImpl implements EventService {
 	public SuccessResponseDto subscribeToEvent(Long eventId, Principal principal) {
 		Event event = eventsRepository.findById(eventId).orElse(null);
 		String userLogin = principal.getName();
-		if (event.getOwner().equals(userLogin) || event.getSubscribers().contains(userLogin)
-				|| !eventsRepository
-						.findOverlapByDate(userRepository.findById(userLogin).get().getInvitations(), event.getDate())
-						.isEmpty()) {
+		if (event.getOwner().equals(userLogin) || event.getSubscribers().contains(userLogin) || eventsRepository
+				.checkForEventOverlap(userLogin, event.getDateTimeStart(), event.getDateTimeFinish(), false)) {
 			throw new ConflictException("User is the owner of the event or already subscribed to it!");
 		}
 		event.addSubscriber(principal.getName());
 		User owner = userRepository.findById(event.getOwner()).get();
 		String message = "User " + userRepository.findById(principal.getName()).get().getUserId()
 				+ " subscribed to your event " + event.getTitle() + " that is suppossed to take place on "
-				+ event.getDate() + ".";
+				+ event.getDateTimeStart().format(DateTimeFormatter.ISO_LOCAL_TIME) + ".";
 		Notification notification = new Notification("Subscription to event", message, eventId);
 		owner.addNotification(notification);
 		userRepository.save(owner);
@@ -378,7 +353,6 @@ public class EventServiceImpl implements EventService {
 	@Override
 	@Transactional
 	public SuccessResponseDto unsubscribeFromEvent(Long eventId, Principal principal) {
-		// FIXME security check if user is subscribed for the event
 		Event event = eventsRepository.findById(eventId).orElse(null);
 		if (!event.getStatus().equals("in progress")) {
 			throw new ConflictException("User can't unsubscribe from the event!");
@@ -387,7 +361,7 @@ public class EventServiceImpl implements EventService {
 		User owner = userRepository.findById(event.getOwner()).get();
 		String message = "User " + userRepository.findById(principal.getName()).get().getUserId()
 				+ " unsubscribed from your event " + event.getTitle() + " that is suppossed to take place on "
-				+ event.getDate() + ".";
+				+ event.getDateTimeStart().format(DateTimeFormatter.ISO_LOCAL_DATE) + ".";
 		Notification notification = new Notification("Unsubscription from event", message, eventId);
 		owner.addNotification(notification);
 		userRepository.save(owner);
@@ -398,8 +372,7 @@ public class EventServiceImpl implements EventService {
 	@Override
 	@Transactional
 	public SuccessResponseDto voteForEvent(Long eventId, Double voteCount, Principal principal) {
-		// FIXME web security check if user was a participant of the event
-		Event event = eventsRepository.findById(eventId).orElse(null);
+		EventArchive event = archiveRepository.findById(eventId).orElse(null);
 		String userLogin = principal.getName();
 		User participant = userRepository.findById(userLogin).get();
 		User owner = userRepository.findById(event.getOwner()).get();
@@ -414,15 +387,13 @@ public class EventServiceImpl implements EventService {
 		owner.addNotification(notification);
 		userRepository.save(owner);
 		event.getVoted().add(userLogin);
-		eventsRepository.save(event);
+		archiveRepository.save(event);
 		return new SuccessResponseDto("User vote is accepted!");
 	}
 
 	@Override
 	@Transactional
 	public InviteResponseDto inviteToEvent(Long eventId, Long userId) {
-		// FIXME check that the user is the owner of the event
-		// FIXME remove from subscribers and put to the participants
 		Event event = eventsRepository.findById(eventId).orElse(null);
 		User user = userRepository.findUserByUserId(userId);
 		String login = user.getLogin();
@@ -431,15 +402,18 @@ public class EventServiceImpl implements EventService {
 		}
 		user.addInvitation(eventId);
 		event.addParticipant(login);
-		List<Event> eventsOverlap = eventsRepository.findDateOverlapForUser(login, event.getDate());
+		LocalDateTime timeOccupiedfrom = event.getDateTimeStart().withHour(0).withMinute(0).withSecond(0);
+		LocalDateTime timeOccupiedto = event.getDateTimeStart().withHour(23).withMinute(59).withSecond(59);
+		List<Event> eventsOverlap = eventsRepository.findOverlapingEvents(login, timeOccupiedfrom, timeOccupiedto);
+		eventsOverlap.forEach(e -> System.out.println(e));
 		if (!eventsOverlap.isEmpty()) {
 			for (Event e : eventsOverlap) {
-				e.deleteParticipant(login);
+				e.deleteSubscriber(login);
 				eventsRepository.save(e);
 			}
 		}
 		String message = "You were invited to the event " + event.getTitle() + " that takes place on "
-				+ event.getDate();
+				+ event.getDateTimeStart().format(DateTimeFormatter.ISO_LOCAL_DATE);
 		Notification notification = new Notification("Invitation", message, eventId);
 		user.addNotification(notification);
 		userRepository.save(user);
@@ -450,7 +424,6 @@ public class EventServiceImpl implements EventService {
 	@Override
 	@Transactional
 	public EventStatusResponseDto changeEventStatus(Long eventId) {
-		// FIXME security check that the user is the owner of the event
 		Event event = eventsRepository.findById(eventId).orElse(null);
 		event.setStatus("pending");
 		eventsRepository.save(event);
@@ -460,15 +433,10 @@ public class EventServiceImpl implements EventService {
 	@Override
 	public EventsInProgressResponseDto getAllEventsInProgress(int page, int size, FiltersDto filters) {
 		Page<Event> eventsInProg = eventsRepository.query(DynamicQuery.builder()
-				.confession(filters.getFilters().getConfession())
-				.dateFrom(filters.getFilters().getDateFrom())
-				.dateTo(filters.getFilters().getDateTo())
-				.holiday(filters.getFilters().getHolidays())
-				.food(filters.getFilters().getFood())
-				.lat(filters.getLocation().getLat())
-				.lng(filters.getLocation().getLng())
-				.radius(filters.getLocation().getRadius())
-				.build(), page, size);
+				.confession(filters.getFilters().getConfession()).dateFrom(filters.getFilters().getDateFrom())
+				.dateTo(filters.getFilters().getDateTo()).holiday(filters.getFilters().getHolidays())
+				.food(filters.getFilters().getFood()).lat(filters.getLocation().getLat())
+				.lng(filters.getLocation().getLng()).radius(filters.getLocation().getRadius()).build(), page, size);
 		List<EventResponseDto> events = eventsInProg.getContent().stream()
 				.map(e -> convertToEventResponseDto(e, convertToOwnerDto(userRepository.findById(e.getOwner()).get())))
 				.sorted().collect(Collectors.toList());
@@ -483,7 +451,7 @@ public class EventServiceImpl implements EventService {
 		int totalPages = eventsInProg.getTotalPages();
 		int number = eventsInProg.getNumber();
 		boolean first = eventsInProg.isFirst();
-		boolean last = eventsInProg.isLast(); 
+		boolean last = eventsInProg.isLast();
 		int numberOfElements = eventsInProg.getNumberOfElements();
 		Sort sort = eventsInProg.getSort();
 		EventsInProgressResponseDto res = new EventsInProgressResponseDto(events, totalElements, totalPages, size,

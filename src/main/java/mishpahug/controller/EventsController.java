@@ -3,6 +3,7 @@ package mishpahug.controller;
 import java.security.Principal;
 
 import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.web.bind.annotation.CrossOrigin;
 import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.PathVariable;
 import org.springframework.web.bind.annotation.PostMapping;
@@ -15,6 +16,7 @@ import org.springframework.web.bind.annotation.RestController;
 import mishpahug.dto.CalendarResponseDto;
 import mishpahug.dto.EventCreateDto;
 import mishpahug.dto.EventResponseDto;
+import mishpahug.dto.EventStatusResponseDto;
 import mishpahug.dto.EventsHistoryListResponseDto;
 import mishpahug.dto.EventsInProgressResponseDto;
 import mishpahug.dto.EventsListResponseDto;
@@ -25,6 +27,7 @@ import mishpahug.service.EventService;
 
 @RestController
 @RequestMapping("/event")
+//@CrossOrigin(methods)
 public class EventsController {
 
 	@Autowired
@@ -83,6 +86,11 @@ public class EventsController {
 	@PutMapping("/invitation/{eventId}/{userId}")
 	public InviteResponseDto inviteToEvent(@PathVariable Long eventId, @PathVariable Long userId) {
 		return eventService.inviteToEvent(eventId, userId);
+	}
+	
+	@PutMapping("/pending/{eventId}")
+	public EventStatusResponseDto changeEventStatus(@PathVariable Long eventId) {
+		return eventService.changeEventStatus(eventId);
 	}
 	
 	@PostMapping("/allprogresslist")

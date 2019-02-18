@@ -1,6 +1,7 @@
 package mishpahug.dao;
 
 import java.time.LocalDate;
+import java.time.LocalDateTime;
 import java.util.List;
 import java.util.Set;
 
@@ -21,8 +22,8 @@ public interface EventsRepository extends MongoRepository<Event, Long>, EventsRe
 
 	public List<Event> findEventByOwner(String owner);
 	
-	@Query("{$and:[{'date': ?1},{'participants':?0}]}")
-	public List<Event> findDateOverlapForUser(String user, LocalDate date);
+	@Query("{$and:[{$or:[{'dateTimeStart':{$gte:?1,$lte:?2}},{$and:[{'dateTimeStart':{$lte:?1}},{'dateTimeFinish':{$gte:?1}}]}]},{'subscribers':?0}]}")
+	public List<Event> findOverlapingEvents(String user, LocalDateTime dateFrom, LocalDateTime dateTo);
 	
 	@Query("{'subscribers':?0}")
 	public List<Event> findEventBySubscribers(String user);
