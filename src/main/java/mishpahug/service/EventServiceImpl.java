@@ -236,21 +236,18 @@ public class EventServiceImpl implements EventService {
 	@Override
 	public CalendarResponseDto getEventsByMonth(int month, Principal principal) {
 		int year = LocalDate.now().getYear();
-		LocalDate dateFrom = LocalDate.of(year, month, 1);
-		/*
-		 * YearMonth yearMonth = YearMonth.of(LocalDate.now().getYear(), month); int
-		 * daysInMonth = yearMonth.lengthOfMonth(); LocalDate dateTo =
-		 * dateFrom.plusDays(daysInMonth).plusDays(1);
-		 */
-		if (month == 12) {
+		LocalDateTime dateFrom = LocalDateTime.of(year, month++, 1,0,0,0);
+		if (month-1 == 12) {
 			month = 1;
 			year = LocalDate.now().getYear() + 1;
 		}
-		LocalDate dateTo = LocalDate.of(year, month, 1);
+		LocalDateTime dateTo = LocalDateTime.of(year, month, 1,0,0,0);
+		System.out.println(dateFrom);
+		System.out.println(dateTo);
 		List<EventForCalendarDto> eventsList = eventsRepository.findEventByMonth(dateFrom, dateTo, principal.getName());
 		Set<EventForCalendarDto> myEvents = new HashSet<>();
 		Set<EventForCalendarDto> subscribedEvents = new HashSet<>();
-		eventsList.sort((e1, e2) -> e1.getDate().compareTo(e2.getDate()));
+		//eventsList.sort((e1, e2) -> e1.getDate().compareTo(e2.getDate()));
 		eventsList.forEach(e -> {
 			String owner = e.getOwner();
 			e.setOwner(null);
