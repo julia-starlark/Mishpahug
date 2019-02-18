@@ -244,10 +244,11 @@ public class EventServiceImpl implements EventService {
 		LocalDateTime dateTo = LocalDateTime.of(year, month, 1,0,0,0);
 		System.out.println(dateFrom);
 		System.out.println(dateTo);
-		List<EventForCalendarDto> eventsList = eventsRepository.findEventByMonth(dateFrom, dateTo, principal.getName());
+		List<EventForCalendarDto> eventsList = eventsRepository.findEventByMonth(dateFrom, dateTo, principal.getName())
+				.stream().map(e -> convertToEventForCalendarDto(e)).collect(Collectors.toList());
 		Set<EventForCalendarDto> myEvents = new HashSet<>();
 		Set<EventForCalendarDto> subscribedEvents = new HashSet<>();
-		//eventsList.sort((e1, e2) -> e1.getDate().compareTo(e2.getDate()));
+		eventsList.sort((e1, e2) -> e1.getDate().compareTo(e2.getDate()));
 		eventsList.forEach(e -> {
 			String owner = e.getOwner();
 			e.setOwner(null);
@@ -260,6 +261,17 @@ public class EventServiceImpl implements EventService {
 			}
 		});
 		return new CalendarResponseDto(myEvents, subscribedEvents);
+	}
+
+	private EventForCalendarDto convertToEventForCalendarDto(Event e) {
+		LocalDateTime date = e.getDateTimeStart();
+		return  EventForCalendarDto.builder().eventId(e.getEventId()).title(e.getTitle())
+				.date(LocalDate.of(date.getYear(), date.getMonth(), date.getDayOfMonth()))
+						.time(LocalTime.of(date.getHour(), date.getMinute()))
+						.duration(e.getDuration())
+						.status(e.getStatus())
+						.owner(e.getOwner())
+						.build();
 	}
 
 	@Override
