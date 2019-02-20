@@ -17,5 +17,5 @@ public class Address {
 	String place_id;
 	@Setter
 	@GeoSpatialIndexed
-	Location location;
+	double[] location;
 }

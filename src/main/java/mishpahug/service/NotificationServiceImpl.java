@@ -1,6 +1,7 @@
 package mishpahug.service;
 
 import java.security.Principal;
+import java.time.LocalDate;
 import java.util.List;
 import java.util.stream.Collectors;
 
@@ -25,6 +26,7 @@ public class NotificationServiceImpl implements NotificationService {
 	@Override
 	public NotificationsListDto getNotificationList(Principal principal) {
 		List<Notification> nots = userRepository.findById(principal.getName()).get().getNotifications();
+		nots.removeIf(n -> n.getDate().isBefore(LocalDate.now().minusMonths(1)));
 		NotificationsListDto nld = new NotificationsListDto(
 				nots.stream().map(n -> new NotificationDto(n.getNotificationId(), n.getTitle(), n.getMessage(),
 						n.getDate(), n.getType(), n.isRead(), n.getEventId())).collect(Collectors.toList()));

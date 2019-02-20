@@ -7,7 +7,6 @@ import org.springframework.data.mongodb.repository.Query;
 
 import mishpahug.domain.Event;
 import mishpahug.domain.EventArchive;
-import mishpahug.dto.EventResponseDto;
 
 public interface ArchiveRepository extends MongoRepository<EventArchive, Long> {
 

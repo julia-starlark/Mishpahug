@@ -10,7 +10,6 @@ import org.springframework.data.domain.Page;
 import org.springframework.data.domain.PageRequest;
 import org.springframework.data.domain.Pageable;
 import org.springframework.data.geo.Circle;
-import org.springframework.data.geo.Point;
 import org.springframework.data.mongodb.core.MongoTemplate;
 import org.springframework.data.mongodb.core.query.Criteria;
 import org.springframework.data.mongodb.core.query.Query;
@@ -55,7 +54,7 @@ public class EventsRepositoryImpl implements EventsRepositoryCustom {
 		if (dynamicQuery.getLat() != null && dynamicQuery.getLng() != null && dynamicQuery.getRadius() != null) {
 			criteria.add(
 					Criteria.where("address.location")
-					.withinSphere(new Circle(new Point(dynamicQuery.getLat(), dynamicQuery.getLng()), dynamicQuery.getRadius())));
+					.withinSphere(new Circle(dynamicQuery.getLat(), dynamicQuery.getLng(), dynamicQuery.getRadius())));
 		}
 		if (!criteria.isEmpty()) {
 			query.addCriteria(new Criteria().andOperator(criteria.toArray(new Criteria[criteria.size()])));
