@@ -19,7 +19,7 @@ public class Notification {
 	LocalDate date;
 	String type;
 	@Setter
-	boolean isRead;
+	boolean read;
 	Long eventId;
 	
 	public Notification(String title, String message, Long eventId) {

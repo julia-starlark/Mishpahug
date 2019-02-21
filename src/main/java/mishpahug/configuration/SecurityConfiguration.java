@@ -28,7 +28,7 @@ public class SecurityConfiguration extends WebSecurityConfigurerAdapter {
 		http.httpBasic();
 		http.csrf().disable();
 		http.cors();
-		// http.sessionManagement().sessionCreationPolicy(SessionCreationPolicy.STATELESS);
+		//http.sessionManagement().sessionCreationPolicy(SessionCreationPolicy.STATELESS);
 		http.authorizeRequests().antMatchers("/user/staticfields", "/event/allprogresslist/**").permitAll();
 		http.authorizeRequests().antMatchers(HttpMethod.GET, "/event/own/{eventId}")
 				.access("@securityCheck.checkEventOwnership(authentication,#eventId)");

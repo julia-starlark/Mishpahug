@@ -2,6 +2,9 @@ package mishpahug.service;
 
 import java.security.Principal;
 
+import org.springframework.boot.web.servlet.server.Session;
+import org.springframework.web.method.annotation.SessionAttributesHandler;
+
 import mishpahug.dto.CalendarResponseDto;
 import mishpahug.dto.EventCreateDto;
 import mishpahug.dto.EventResponseDto;
@@ -21,7 +24,7 @@ public interface EventService {
 	
 	EventResponseDto getSubscribedEventById(Long eventId);
 	
-	CalendarResponseDto getEventsByMonth(int month, Principal principal);
+	CalendarResponseDto getEventsByMonth(int month,Principal principal);
 
 	EventsListResponseDto getOwnEventsList(Principal principal);
 

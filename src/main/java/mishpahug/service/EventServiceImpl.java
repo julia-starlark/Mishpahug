@@ -17,6 +17,7 @@ import java.util.concurrent.TimeUnit;
 import java.util.stream.Collectors;
 
 import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.boot.web.servlet.server.Session;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.Sort;
 import org.springframework.stereotype.Service;
@@ -104,7 +105,8 @@ public class EventServiceImpl implements EventService {
 				List<User> participants = userRepository.findParticipants(particip, eventId);
 				if (!participants.isEmpty()) {
 					participants.forEach(u -> u.deleteInvitation(event.getEventId()));
-					participants.forEach(u -> u.addNotification(createNotification("Vote for Event", event.getTitle(), event.getDateTimeStart(), event.getEventId(), u)));
+					participants.forEach(u -> u.addNotification(createNotification("Vote for Event", event.getTitle(),
+							event.getDateTimeStart(), event.getEventId(), u)));
 					userRepository.saveAll(participants);
 				}
 			}
@@ -112,24 +114,22 @@ public class EventServiceImpl implements EventService {
 		}, delay, TimeUnit.MINUTES);
 	}
 
-	protected Notification createNotification(String title, String eventTitle, LocalDateTime date, long eventId,User user) {
+	protected Notification createNotification(String title, String eventTitle, LocalDateTime date, long eventId,
+			User user) {
 		String message = "";
 		if (title.equals("Vote for Event")) {
 			message = "Don't forget to vote for event " + eventTitle + " that you have attended.";
 		}
 		if (title.equals("Subscription to event")) {
 			message = user.getFirstName() + " " + user.getLastName() + " subscribed to your event " + eventTitle
-					+ " that is suppossed to take place on "
-					+ date.format(DateTimeFormatter.ISO_LOCAL_TIME) + ".";
+					+ " that is suppossed to take place on " + date.format(DateTimeFormatter.ISO_LOCAL_TIME) + ".";
 		}
-		if(title.equals("Unsubscription from event")) {
-			 message = user.getFirstName() + " " + user.getLastName()
-					+ " unsubscribed from your event " + eventTitle + " that is suppossed to take place on "
-					+ date.format(DateTimeFormatter.ISO_LOCAL_DATE) + ".";
+		if (title.equals("Unsubscription from event")) {
+			message = user.getFirstName() + " " + user.getLastName() + " unsubscribed from your event " + eventTitle
+					+ " that is suppossed to take place on " + date.format(DateTimeFormatter.ISO_LOCAL_DATE) + ".";
 		}
-		if(title.equals("New Vote")) {
-			message = user.getFirstName() + " " + user.getLastName() + " has voted for the event "
-					+ eventTitle;
+		if (title.equals("New Vote")) {
+			message = user.getFirstName() + " " + user.getLastName() + " has voted for the event " + eventTitle;
 		}
 		return new Notification(title, message, eventId);
 	}
@@ -138,8 +138,8 @@ public class EventServiceImpl implements EventService {
 		String message = "";
 		if (title.equals("Event Cancelation")) {
 			message = "We are sorry to inform you that the event " + eventTitle
-					+ " that was suppossed to take place on "
-					+ date.format(DateTimeFormatter.ISO_LOCAL_DATE) + " was cancelled.";
+					+ " that was suppossed to take place on " + date.format(DateTimeFormatter.ISO_LOCAL_DATE)
+					+ " was cancelled.";
 		}
 		return new Notification(title, message, eventId);
 
@@ -156,7 +156,8 @@ public class EventServiceImpl implements EventService {
 				Event event = eventsRepository.findById(eventId).get();
 				if (!event.getStatus().equals("pending")) {
 					event.setStatus("not done");
-					Notification notification = createNotification("Event Cancelation", event.getTitle(), event.getDateTimeStart(), event.getEventId());
+					Notification notification = createNotification("Event Cancelation", event.getTitle(),
+							event.getDateTimeStart(), event.getEventId());
 					Set<String> eventSubscribers = event.getSubscribers();
 					eventSubscribers.stream().map(s -> userRepository.findById(s).get()).forEach(u -> {
 						u.addNotification(notification);
@@ -207,7 +208,7 @@ public class EventServiceImpl implements EventService {
 	}
 
 	private ParticipantDto convertToParticipantDto(User u, Event event) {
-		return ParticipantDto.builder().userId(u.getUserId()).fullName(u.getFirstName() + u.getLastName())
+		return ParticipantDto.builder().userId(u.getUserId()).fullName(u.getFirstName() + " " + u.getLastName())
 				.confession(u.getConfession()).gender(u.getGender())
 				.age(Period.between(u.getDateOfBirth(), LocalDate.now()).getYears()).pictureLink(u.getPictureLink())
 				.maritalStatus(u.getMaritalStatus()).foodPreferences(u.getFoodPreferences()).languages(u.getLanguages())
@@ -235,7 +236,7 @@ public class EventServiceImpl implements EventService {
 	}
 
 	private OwnerDto convertToOwnerDto(User eventOwner) {
-		return OwnerDto.builder().fullName(eventOwner.getFirstName() + eventOwner.getLastName())
+		return OwnerDto.builder().fullName(eventOwner.getFirstName() + " " + eventOwner.getLastName())
 				.confession(eventOwner.getConfession()).gender(eventOwner.getGender())
 				.age(Period.between(eventOwner.getDateOfBirth(), LocalDate.now()).getYears())
 				.pictureLink(eventOwner.getPictureLink()).phoneNumber(eventOwner.getPhoneNumber())
@@ -377,7 +378,8 @@ public class EventServiceImpl implements EventService {
 		event.addSubscriber(principal.getName());
 		User owner = userRepository.findById(event.getOwner()).get();
 		User user = userRepository.findById(principal.getName()).get();
-		Notification notification = createNotification("Subscription to event", event.getTitle(), event.getDateTimeStart(),event.getEventId(), user);
+		Notification notification = createNotification("Subscription to event", event.getTitle(),
+				event.getDateTimeStart(), event.getEventId(), user);
 		owner.addNotification(notification);
 		userRepository.save(owner);
 		eventsRepository.save(event);
@@ -394,7 +396,8 @@ public class EventServiceImpl implements EventService {
 		event.deleteParticipant(principal.getName());
 		User owner = userRepository.findById(event.getOwner()).get();
 		User user = userRepository.findById(principal.getName()).get();
-		Notification notification = createNotification("Unsubscription from event", event.getTitle(), event.getDateTimeStart(),event.getEventId(), user);
+		Notification notification = createNotification("Unsubscription from event", event.getTitle(),
+				event.getDateTimeStart(), event.getEventId(), user);
 		owner.addNotification(notification);
 		userRepository.save(owner);
 		eventsRepository.save(event);
@@ -413,7 +416,8 @@ public class EventServiceImpl implements EventService {
 		double newRate = (currentRate * numVoters + voteCount) / ++numVoters;
 		owner.setRate(newRate);
 		owner.setNumberOfVoters(numVoters++);
-		Notification notification = createNotification("New Vote", event.getTitle(), event.getDateTimeStart(),event.getEventId(), participant);
+		Notification notification = createNotification("New Vote", event.getTitle(), event.getDateTimeStart(),
+				event.getEventId(), participant);
 		owner.addNotification(notification);
 		userRepository.save(owner);
 		event.getVoted().add(userLogin);
