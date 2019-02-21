@@ -21,7 +21,7 @@ public class UserAccountConfiguration {
 		byte[] base64DecodeBytes = Base64.getDecoder().decode(token);
 		token = new String(base64DecodeBytes);
 		String[] creds = token.split(":");
-		UserCredentials credentials = new UserCredentials(creds[0], creds[1]);
+		UserCredentials credentials = new UserCredentials(creds[0].trim().toLowerCase(), creds[1]);
 		return credentials;
 	}
 }
