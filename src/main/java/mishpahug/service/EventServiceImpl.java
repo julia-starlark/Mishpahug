@@ -6,7 +6,6 @@ import java.time.LocalDate;
 import java.time.LocalDateTime;
 import java.time.LocalTime;
 import java.time.Period;
-import java.time.format.DateTimeFormatter;
 import java.util.ArrayList;
 import java.util.Collections;
 import java.util.HashSet;
@@ -66,6 +65,9 @@ public class EventServiceImpl implements EventService {
 
 	@Autowired
 	NotificationFactory notificationFactory;
+	
+	@Autowired
+	DtoFactory dtoFactory;
 
 	@Override
 	@Transactional
@@ -103,7 +105,7 @@ public class EventServiceImpl implements EventService {
 					event.setStatus("done");
 				}
 				Set<String> particip = event.getParticipants();
-				archiveRepository.save(convertToEventArchive(event));
+				archiveRepository.save(dtoFactory.convertToEventArchive(event));
 				eventsRepository.delete(event);
 				List<User> participants = userRepository.findParticipants(particip, eventId);
 				if (!participants.isEmpty()) {
@@ -137,20 +139,11 @@ public class EventServiceImpl implements EventService {
 						u.addNotification(notification);
 						userRepository.save(u);
 					});
-					archiveRepository.save(convertToEventArchive(event));
+					archiveRepository.save(dtoFactory.convertToEventArchive(event));
 					eventsRepository.delete(event);
 				}
 			}
 		}, delay, TimeUnit.MINUTES);
-	}
-
-	private EventArchive convertToEventArchive(Event event) {
-		return EventArchive.builder().eventId(event.getEventId()).title(event.getTitle()).holiday(event.getHoliday())
-				.confession(event.getConfession()).dateTimeStart(event.getDateTimeStart())
-				.dateTimeFinish(event.getDateTimeFinish()).duration(event.getDuration()).address(event.getAddress())
-				.food(event.getFood()).description(event.getDescription()).status(event.getStatus())
-				.participants(event.getParticipants()).subscribers(event.getSubscribers()).voted(event.getVoted())
-				.owner(event.getOwner()).build();
 	}
 
 	@Override
@@ -158,7 +151,7 @@ public class EventServiceImpl implements EventService {
 		Event event = eventsRepository.findById(eventId).orElse(null);
 		Set<User> users = event.getSubscribers().stream().map(id -> userRepository.findById(id).get())
 				.collect(Collectors.toSet());
-		Set<ParticipantDto> participants = users.stream().map(u -> convertToParticipantDto(u, event))
+		Set<ParticipantDto> participants = users.stream().map(u -> dtoFactory.convertToParticipantDto(u, event))
 				.collect(Collectors.toSet());
 		if (event.getStatus().equals("in progress")) {
 			participants.forEach(p -> p.setPhoneNumber(null));
@@ -166,28 +159,9 @@ public class EventServiceImpl implements EventService {
 		if (event.getStatus().equals("pending")) {
 			users = users.stream().filter(u -> u.getInvitations().contains(event.getEventId()))
 					.collect(Collectors.toSet());
-			participants = users.stream().map(u -> convertToParticipantDto(u, event)).collect(Collectors.toSet());
+			participants = users.stream().map(u -> dtoFactory.convertToParticipantDto(u, event)).collect(Collectors.toSet());
 		}
-		return convertToEventResponseDto(event, participants);
-	}
-
-	private EventResponseDto convertToEventResponseDto(Event event, Set<ParticipantDto> participants) {
-		LocalDateTime eventstart = event.getDateTimeStart();
-		return EventResponseDto.builder().eventId(event.getEventId()).title(event.getTitle())
-				.holiday(event.getHoliday()).confession(event.getConfession())
-				.date(LocalDate.of(eventstart.getYear(), eventstart.getMonth(), eventstart.getDayOfMonth()))
-				.time(LocalTime.of(eventstart.getHour(), eventstart.getMinute())).duration(event.getDuration())
-				.food(event.getFood()).description(event.getDescription()).status(event.getStatus())
-				.participants(participants).build();
-	}
-
-	private ParticipantDto convertToParticipantDto(User u, Event event) {
-		return ParticipantDto.builder().userId(u.getUserId()).fullName(u.getFirstName() + " " + u.getLastName())
-				.confession(u.getConfession()).gender(u.getGender())
-				.age(Period.between(u.getDateOfBirth(), LocalDate.now()).getYears()).pictureLink(u.getPictureLink())
-				.maritalStatus(u.getMaritalStatus()).foodPreferences(u.getFoodPreferences()).languages(u.getLanguages())
-				.rate(u.getRate()).phoneNumber(u.getPhoneNumber()).numberOfVoters(u.getNumberOfVoters())
-				/* .isInvited(u.getInvitations().contains(event.getEventId()) ? false : true) */.build();
+		return dtoFactory.convertToEventResponseDto(event, participants);
 	}
 
 	@Override
@@ -199,38 +173,13 @@ public class EventServiceImpl implements EventService {
 		LocationDto location = LocationDto.builder().lat(eventLocation[0]).lng(eventLocation[1]).build();
 		AddressDto address = AddressDto.builder().city(eventAddress.getCity()).place_id(eventAddress.getPlace_id())
 				.location(location).build();
-		OwnerDto owner = convertToOwnerDto(eventOwner);
+		OwnerDto owner = dtoFactory.convertToOwnerDto(eventOwner);
 		if (event.getStatus().equals("in progress")) {
 			address.setLocation(null);
 			address.setPlace_id(null);
 			owner.setPhoneNumber(null);
 		}
-		return convertToEventResponseDto(event, owner);
-	}
-
-	private OwnerDto convertToOwnerDto(User eventOwner) {
-		return OwnerDto.builder().fullName(eventOwner.getFirstName() + " " + eventOwner.getLastName())
-				.confession(eventOwner.getConfession()).gender(eventOwner.getGender())
-				.age(Period.between(eventOwner.getDateOfBirth(), LocalDate.now()).getYears())
-				.pictureLink(eventOwner.getPictureLink()).phoneNumber(eventOwner.getPhoneNumber())
-				.maritalStatus(eventOwner.getMaritalStatus()).foodPreferences(eventOwner.getFoodPreferences())
-				.languages(eventOwner.getLanguages()).rate(eventOwner.getRate())
-				.numberOfVoters(eventOwner.getNumberOfVoters()).build();
-	}
-
-	private EventResponseDto convertToEventResponseDto(Event event, OwnerDto owner) {
-		Address eventAddress = event.getAddress();
-		double[] eventLocation = eventAddress.getLocation();
-		LocationDto location = LocationDto.builder().lat(eventLocation[0]).lng(eventLocation[1]).build();
-		AddressDto address = AddressDto.builder().city(eventAddress.getCity()).place_id(eventAddress.getPlace_id())
-				.location(location).build();
-		LocalDateTime eventstart = event.getDateTimeStart();
-		return EventResponseDto.builder().eventId(event.getEventId()).title(event.getTitle())
-				.holiday(event.getHoliday()).confession(event.getConfession())
-				.date(LocalDate.of(eventstart.getYear(), eventstart.getMonth(), eventstart.getDayOfMonth()))
-				.time(LocalTime.of(eventstart.getHour(), eventstart.getMinute())).duration(event.getDuration())
-				.duration(event.getDuration()).address(address).food(event.getFood())
-				.description(event.getDescription()).status(event.getStatus()).owner(owner).build();
+		return dtoFactory.convertToEventResponseDto(event, owner);
 	}
 
 	@Override
@@ -245,7 +194,7 @@ public class EventServiceImpl implements EventService {
 		}
 		LocalDateTime dateTo = LocalDateTime.of(year, month, 1, 0, 0, 0);
 		List<EventForCalendarDto> eventsList = eventsRepository.findEventByMonth(dateFrom, dateTo, principal.getName())
-				.stream().map(e -> convertToEventForCalendarDto(e)).collect(Collectors.toList());
+				.stream().map(e -> dtoFactory.convertToEventForCalendarDto(e)).collect(Collectors.toList());
 		Set<EventForCalendarDto> myEvents = new HashSet<>();
 		Set<EventForCalendarDto> subscribedEvents = new HashSet<>();
 		eventsList.sort((e1, e2) -> e1.getDate().compareTo(e2.getDate()));
@@ -263,25 +212,17 @@ public class EventServiceImpl implements EventService {
 		return new CalendarResponseDto(myEvents, subscribedEvents);
 	}
 
-	private EventForCalendarDto convertToEventForCalendarDto(Event e) {
-		LocalDateTime date = e.getDateTimeStart();
-		return EventForCalendarDto.builder().eventId(e.getEventId()).title(e.getTitle())
-				.date(LocalDate.of(date.getYear(), date.getMonth(), date.getDayOfMonth()))
-				.time(LocalTime.of(date.getHour(), date.getMinute())).duration(e.getDuration()).status(e.getStatus())
-				.owner(e.getOwner()).build();
-	}
-
 	@Override
 	public EventsListResponseDto getOwnEventsList(Principal principal) {
 		List<Event> myEvents = eventsRepository.findEventByOwner(principal.getName());
 		List<EventResponseDto> eventsRespDto = new ArrayList<>();
 		for (Event e : myEvents) {
 			Set<ParticipantDto> participants = e.getParticipants().stream().map(id -> userRepository.findById(id).get())
-					.map(u -> convertToParticipantDto(u, e)).collect(Collectors.toSet());
+					.map(u -> dtoFactory.convertToParticipantDto(u, e)).collect(Collectors.toSet());
 			if (e.getStatus().equals("in progress")) {
 				participants.forEach(p -> p.setPhoneNumber(null));
 			}
-			eventsRespDto.add(convertToEventResponseDto(e, participants));
+			eventsRespDto.add(dtoFactory.convertToEventResponseDto(e, participants));
 		}
 		EventsListResponseDto events = new EventsListResponseDto(eventsRespDto);
 		return events;
@@ -308,7 +249,7 @@ public class EventServiceImpl implements EventService {
 		List<EventResponseDto> subcribedEvents = new ArrayList<>();
 		if (!eventsArchive.isEmpty()) {
 			eventsArchive.stream().map(
-					e -> convertToEventResponseDto(e, convertToOwnerDto(userRepository.findById(e.getOwner()).get())))
+					e -> dtoFactory.convertToEventResponseDto(e, dtoFactory.convertToOwnerDto(userRepository.findById(e.getOwner()).get())))
 					.forEach(e -> {
 						e.getOwner().setPhoneNumber(null);
 						e.setTime(null);
@@ -321,7 +262,7 @@ public class EventServiceImpl implements EventService {
 		List<Event> events = eventsRepository.findEventBySubscribers(userLogin);
 		if (!events.isEmpty()) {
 			events.stream().map(
-					e -> convertToEventResponseDto(e, convertToOwnerDto(userRepository.findById(e.getOwner()).get())))
+					e -> dtoFactory.convertToEventResponseDto(e, dtoFactory.convertToOwnerDto(userRepository.findById(e.getOwner()).get())))
 					.forEach(e -> {
 						if (e.getStatus().equals("in progress")) {
 							e.getOwner().setPhoneNumber(null);
@@ -346,13 +287,11 @@ public class EventServiceImpl implements EventService {
 			throw new ConflictException("User is the owner of the event or already subscribed to it!");
 		}
 		event.addSubscriber(principal.getName());
-		User owner = userRepository.findById(event.getOwner()).get();
 		Notification notification = notificationFactory
 				.creteNewNotification(NotificationNewDto.builder().title(NotificationTitle.SUBSCRIPTION_TO_EVENT)
 						.eventId(event.getEventId()).eventTitle(event.getTitle()).date(event.getDateTimeStart())
 						.userFullName(userRepository.getUserFullName(principal.getName())).build());
-		owner.addNotification(notification);
-		userRepository.save(owner);
+		userRepository.addNotificationToUser(event.getOwner(), notification);
 		eventsRepository.save(event);
 		return new SuccessResponseDto("User subscribed to the event!");
 	}
@@ -365,14 +304,11 @@ public class EventServiceImpl implements EventService {
 			throw new ConflictException("User can't unsubscribe from the event!");
 		}
 		event.deleteSubscriber(principal.getName());
-		//FIXME don't get whole owner and user
-		User owner = userRepository.findById(event.getOwner()).get();
 		Notification notification = notificationFactory
 				.creteNewNotification(NotificationNewDto.builder().title(NotificationTitle.UNSUBSCRIPTION_FROM_EVENT)
 						.eventId(event.getEventId()).eventTitle(event.getTitle()).date(event.getDateTimeStart())
 						.userFullName(userRepository.getUserFullName(principal.getName())).build());
-		owner.addNotification(notification);
-		userRepository.save(owner);
+		userRepository.addNotificationToUser(event.getOwner(), notification);
 		eventsRepository.save(event);
 		return new SuccessResponseDto("User unsubscribed from the event!");
 	}
@@ -443,7 +379,7 @@ public class EventServiceImpl implements EventService {
 				.food(filters.getFilters().getFood()).lat(filters.getLocation().getLat())
 				.lng(filters.getLocation().getLng()).radius(filters.getLocation().getRadius()).build(), page, size);
 		List<EventResponseDto> events = eventsInProg.getContent().stream()
-				.map(e -> convertToEventResponseDto(e, convertToOwnerDto(userRepository.findById(e.getOwner()).get())))
+				.map(e -> dtoFactory.convertToEventResponseDto(e, dtoFactory.convertToOwnerDto(userRepository.findById(e.getOwner()).get())))
 				.sorted().collect(Collectors.toList());
 		events.forEach(e -> {
 			e.getAddress().setLocation(null);

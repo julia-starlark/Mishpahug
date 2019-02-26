@@ -44,7 +44,6 @@ public class NotificationServiceImpl implements NotificationService {
 	@Override
 	@Transactional
 	public SuccessResponseDto readNotification(long notificationId, Principal principal) {
-		// FIXME check that the user is the owner of the notification
 		User user = userRepository.findById(principal.getName()).get();
 		Notification note = user.getNotifications().stream().filter(n -> n.getNotificationId() == notificationId)
 				.findFirst().orElse(null);
