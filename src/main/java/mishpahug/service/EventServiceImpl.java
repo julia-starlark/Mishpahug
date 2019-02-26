@@ -8,6 +8,7 @@ import java.time.LocalTime;
 import java.time.Period;
 import java.time.format.DateTimeFormatter;
 import java.util.ArrayList;
+import java.util.Collections;
 import java.util.HashSet;
 import java.util.List;
 import java.util.Set;
@@ -333,13 +334,7 @@ public class EventServiceImpl implements EventService {
 						subcribedEvents.add(e);
 					});
 		}
-		subcribedEvents.sort((e1, e2) -> {
-			int res = e1.getDate().compareTo(e2.getDate());
-			if (res == 0) {
-				res = e1.getTime().compareTo(e2.getTime());
-			}
-			return res;
-		});
+		Collections.sort(subcribedEvents);
 		EventsListResponseDto eventsList = new EventsListResponseDto(subcribedEvents);
 		return eventsList;
 	}
