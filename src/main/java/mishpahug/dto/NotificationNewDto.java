@@ -1,5 +1,7 @@
 package mishpahug.dto;
 
+import java.time.LocalDateTime;
+
 import lombok.AllArgsConstructor;
 import lombok.Builder;
 import lombok.Getter;
@@ -10,7 +12,10 @@ import lombok.NoArgsConstructor;
 @AllArgsConstructor
 @Builder
 public class NotificationNewDto {
-	String title;
-	String message;
+	NotificationTitle title;
 	Long eventId;
+	String eventTitle;
+	LocalDateTime date;
+	String userFirstName;
+	String userLastName;
 }

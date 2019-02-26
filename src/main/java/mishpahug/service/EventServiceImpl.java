@@ -17,7 +17,6 @@ import java.util.concurrent.TimeUnit;
 import java.util.stream.Collectors;
 
 import org.springframework.beans.factory.annotation.Autowired;
-import org.springframework.boot.web.servlet.server.Session;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.Sort;
 import org.springframework.stereotype.Service;
@@ -44,6 +43,8 @@ import mishpahug.dto.EventsListResponseDto;
 import mishpahug.dto.FiltersDto;
 import mishpahug.dto.InviteResponseDto;
 import mishpahug.dto.LocationDto;
+import mishpahug.dto.NotificationNewDto;
+import mishpahug.dto.NotificationTitle;
 import mishpahug.dto.OwnerDto;
 import mishpahug.dto.ParticipantDto;
 import mishpahug.dto.SuccessResponseDto;
@@ -62,12 +63,13 @@ public class EventServiceImpl implements EventService {
 	@Autowired
 	ArchiveRepository archiveRepository;
 
+	@Autowired
+	NotificationFactory notificationFactory;
+
 	@Override
 	@Transactional
 	public SuccessResponseDto addEvent(EventCreateDto eventCreateDto, Principal principal) {
 		String owner = principal.getName();
-		// Location location = new
-		// Location(eventCreateDto.getAddress().getLocation().getLat(),eventCreateDto.getAddress().getLocation().getLng());
 		double[] location = { eventCreateDto.getAddress().getLocation().getLat(),
 				eventCreateDto.getAddress().getLocation().getLng() };
 		Address address = new Address(eventCreateDto.getAddress().getCity(), eventCreateDto.getAddress().getPlace_id(),
@@ -105,44 +107,14 @@ public class EventServiceImpl implements EventService {
 				List<User> participants = userRepository.findParticipants(particip, eventId);
 				if (!participants.isEmpty()) {
 					participants.forEach(u -> u.deleteInvitation(event.getEventId()));
-					participants.forEach(u -> u.addNotification(createNotification("Vote for Event", event.getTitle(),
-							event.getDateTimeStart(), event.getEventId(), u)));
+					participants.forEach(u -> u.addNotification(notificationFactory.creteNewNotification(
+							NotificationNewDto.builder().eventId(eventId).date(event.getDateTimeStart())
+									.title(NotificationTitle.EVENT_CANCELATION).eventTitle(event.getTitle()).build())));
 					userRepository.saveAll(participants);
 				}
 			}
 
 		}, delay, TimeUnit.MINUTES);
-	}
-
-	protected Notification createNotification(String title, String eventTitle, LocalDateTime date, long eventId,
-			User user) {
-		String message = "";
-		if (title.equals("Vote for Event")) {
-			message = "Don't forget to vote for event " + eventTitle + " that you have attended.";
-		}
-		if (title.equals("Subscription to event")) {
-			message = user.getFirstName() + " " + user.getLastName() + " subscribed to your event " + eventTitle
-					+ " that is suppossed to take place on " + date.format(DateTimeFormatter.ISO_LOCAL_TIME) + ".";
-		}
-		if (title.equals("Unsubscription from event")) {
-			message = user.getFirstName() + " " + user.getLastName() + " unsubscribed from your event " + eventTitle
-					+ " that is suppossed to take place on " + date.format(DateTimeFormatter.ISO_LOCAL_DATE) + ".";
-		}
-		if (title.equals("New Vote")) {
-			message = user.getFirstName() + " " + user.getLastName() + " has voted for the event " + eventTitle;
-		}
-		return new Notification(title, message, eventId);
-	}
-
-	protected Notification createNotification(String title, String eventTitle, LocalDateTime date, long eventId) {
-		String message = "";
-		if (title.equals("Event Cancelation")) {
-			message = "We are sorry to inform you that the event " + eventTitle
-					+ " that was suppossed to take place on " + date.format(DateTimeFormatter.ISO_LOCAL_DATE)
-					+ " was cancelled.";
-		}
-		return new Notification(title, message, eventId);
-
 	}
 
 	private void checkForPendingStatus(long eventId, LocalDateTime eventStart) {
@@ -156,8 +128,9 @@ public class EventServiceImpl implements EventService {
 				Event event = eventsRepository.findById(eventId).get();
 				if (!event.getStatus().equals("pending")) {
 					event.setStatus("not done");
-					Notification notification = createNotification("Event Cancelation", event.getTitle(),
-							event.getDateTimeStart(), event.getEventId());
+					Notification notification = notificationFactory.creteNewNotification(NotificationNewDto.builder()
+							.title(NotificationTitle.EVENT_CANCELATION).eventId(event.getEventId())
+							.eventTitle(event.getTitle()).date(event.getDateTimeStart()).build());
 					Set<String> eventSubscribers = event.getSubscribers();
 					eventSubscribers.stream().map(s -> userRepository.findById(s).get()).forEach(u -> {
 						u.addNotification(notification);
@@ -273,8 +246,6 @@ public class EventServiceImpl implements EventService {
 			year = LocalDate.now().getYear() + 1;
 		}
 		LocalDateTime dateTo = LocalDateTime.of(year, month, 1, 0, 0, 0);
-		System.out.println(dateFrom);
-		System.out.println(dateTo);
 		List<EventForCalendarDto> eventsList = eventsRepository.findEventByMonth(dateFrom, dateTo, principal.getName())
 				.stream().map(e -> convertToEventForCalendarDto(e)).collect(Collectors.toList());
 		Set<EventForCalendarDto> myEvents = new HashSet<>();
@@ -362,6 +333,13 @@ public class EventServiceImpl implements EventService {
 						subcribedEvents.add(e);
 					});
 		}
+		subcribedEvents.sort((e1, e2) -> {
+			int res = e1.getDate().compareTo(e2.getDate());
+			if (res == 0) {
+				res = e1.getTime().compareTo(e2.getTime());
+			}
+			return res;
+		});
 		EventsListResponseDto eventsList = new EventsListResponseDto(subcribedEvents);
 		return eventsList;
 	}
@@ -378,8 +356,10 @@ public class EventServiceImpl implements EventService {
 		event.addSubscriber(principal.getName());
 		User owner = userRepository.findById(event.getOwner()).get();
 		User user = userRepository.findById(principal.getName()).get();
-		Notification notification = createNotification("Subscription to event", event.getTitle(),
-				event.getDateTimeStart(), event.getEventId(), user);
+		Notification notification = notificationFactory
+				.creteNewNotification(NotificationNewDto.builder().title(NotificationTitle.SUBSCRIPTION_TO_EVENT)
+						.eventId(event.getEventId()).eventTitle(event.getTitle()).date(event.getDateTimeStart())
+						.userFirstName(user.getFirstName()).userLastName(user.getLastName()).build());
 		owner.addNotification(notification);
 		userRepository.save(owner);
 		eventsRepository.save(event);
@@ -393,11 +373,13 @@ public class EventServiceImpl implements EventService {
 		if (!event.getStatus().equals("in progress")) {
 			throw new ConflictException("User can't unsubscribe from the event!");
 		}
-		event.deleteParticipant(principal.getName());
+		event.deleteSubscriber(principal.getName());
 		User owner = userRepository.findById(event.getOwner()).get();
 		User user = userRepository.findById(principal.getName()).get();
-		Notification notification = createNotification("Unsubscription from event", event.getTitle(),
-				event.getDateTimeStart(), event.getEventId(), user);
+		Notification notification = notificationFactory
+				.creteNewNotification(NotificationNewDto.builder().title(NotificationTitle.UNSUBSCRIPTION_FROM_EVENT)
+						.eventId(event.getEventId()).eventTitle(event.getTitle()).date(event.getDateTimeStart())
+						.userFirstName(user.getFirstName()).userLastName(user.getLastName()).build());
 		owner.addNotification(notification);
 		userRepository.save(owner);
 		eventsRepository.save(event);
@@ -416,8 +398,10 @@ public class EventServiceImpl implements EventService {
 		double newRate = (currentRate * numVoters + voteCount) / ++numVoters;
 		owner.setRate(newRate);
 		owner.setNumberOfVoters(numVoters++);
-		Notification notification = createNotification("New Vote", event.getTitle(), event.getDateTimeStart(),
-				event.getEventId(), participant);
+		Notification notification = notificationFactory
+				.creteNewNotification(NotificationNewDto.builder().title(NotificationTitle.NEW_VOTE)
+						.eventTitle(event.getTitle()).date(event.getDateTimeStart()).eventId(event.getEventId())
+						.userFirstName(participant.getFirstName()).userLastName(participant.getLastName()).build());
 		owner.addNotification(notification);
 		userRepository.save(owner);
 		event.getVoted().add(userLogin);

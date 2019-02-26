@@ -28,8 +28,6 @@ public class SecurityCheck {
 			return false;
 		}
 		String owner = event.getOwner();
-		/*System.out.println(owner);
-		System.out.println(authentication.getName());*/
 		if(!owner.equals(authentication.getName())) {
 			return false;
 			//throw new ConflictException("User is not associated with the event!");

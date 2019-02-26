@@ -7,7 +7,7 @@ import mishpahug.dto.NotificationsListDto;
 import mishpahug.dto.SuccessResponseDto;
 
 public interface NotificationService {
-
+	
 	NotificationsListDto getNotificationList(Principal principal);
 
 	NotificationsCountDto getNumberOfUnreadNotifications(Principal principal);

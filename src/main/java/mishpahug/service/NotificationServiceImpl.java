@@ -13,6 +13,7 @@ import mishpahug.dao.UserAccountRepository;
 import mishpahug.domain.Notification;
 import mishpahug.domain.User;
 import mishpahug.dto.NotificationDto;
+import mishpahug.dto.NotificationNewDto;
 import mishpahug.dto.NotificationsCountDto;
 import mishpahug.dto.NotificationsListDto;
 import mishpahug.dto.SuccessResponseDto;
@@ -22,7 +23,7 @@ public class NotificationServiceImpl implements NotificationService {
 
 	@Autowired
 	UserAccountRepository userRepository;
-
+	
 	@Override
 	public NotificationsListDto getNotificationList(Principal principal) {
 		List<Notification> nots = userRepository.findById(principal.getName()).get().getNotifications();
@@ -47,10 +48,8 @@ public class NotificationServiceImpl implements NotificationService {
 		User user = userRepository.findById(principal.getName()).get();
 		Notification note = user.getNotifications().stream().filter(n -> n.getNotificationId() == notificationId)
 				.findFirst().orElse(null);
-		if (note != null) {
-			note.setRead(true);
-			userRepository.save(user);
-		}
+		note.setRead(true);
+		userRepository.save(user);
 		return new SuccessResponseDto("Notification is updated!");
 	}
 

@@ -47,8 +47,8 @@ public class EventsController {
 		return eventService.getSubscribedEventById(eventId);
 	}
 	
-	@GetMapping("/calendar/{month}")
-	public CalendarResponseDto getEventsByMonth(@PathVariable int month, Principal principal) {
+	@GetMapping("/calendar/{month}/{year}")
+	public CalendarResponseDto getEventsByMonth(@PathVariable int month, @PathVariable int year, Principal principal) {
 		return eventService.getEventsByMonth(month, principal);
 	}
 	

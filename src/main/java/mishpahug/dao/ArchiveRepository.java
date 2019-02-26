@@ -15,6 +15,6 @@ public interface ArchiveRepository extends MongoRepository<EventArchive, Long> {
 	
 	//FIXME fields
 	@Query(value="{$and: [{'participants': ?0},{'voted':{$nin:[?0]}},{'status': 'done'}]}", 
-			fields="{'title':'title','holiday':'holiday','address':'addres','confession':'confession','date':'date','description':'description','status':'status', 'owner':'owner'}")
+			fields="{'title':'title','holiday':'holiday','address':'addres','confession':'confession','dateTimeStart':'dateTimeStart','description':'description','status':'status', 'owner':'owner'}")
 	List<Event> findEventsByParticipants(String userLogin);
 }
