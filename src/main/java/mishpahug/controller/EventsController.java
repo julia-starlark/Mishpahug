@@ -49,7 +49,7 @@ public class EventsController {
 	
 	@GetMapping("/calendar/{month}/{year}")
 	public CalendarResponseDto getEventsByMonth(@PathVariable int month, @PathVariable int year, Principal principal) {
-		return eventService.getEventsByMonth(month, principal);
+		return eventService.getEventsByMonth(month,year, principal);
 	}
 	
 	@GetMapping("/currentlist")

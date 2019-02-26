@@ -5,6 +5,8 @@ import org.springframework.data.mongodb.core.MongoTemplate;
 import org.springframework.data.mongodb.core.query.Criteria;
 import org.springframework.data.mongodb.core.query.Query;
 
+import mishpahug.domain.User;
+
 public class UserAccountRepositoryImpl implements UserAccountRepositoryCustome {
 	private final MongoTemplate mongoTemplate;
 
@@ -17,8 +19,9 @@ public class UserAccountRepositoryImpl implements UserAccountRepositoryCustome {
 	public String getUserFullName(String login) {
 		Query query = new Query();
 		query.addCriteria(Criteria.where("_id").is(login));
-	
-		return null;
+		String name = mongoTemplate.findDistinct(query, "firstName", User.class, String.class).get(0);
+		String lastname = mongoTemplate.findDistinct(query, "lastName", User.class, String.class).get(0);
+		return name + " " + lastname;
 	}
 
 }

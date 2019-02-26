@@ -347,13 +347,10 @@ public class EventServiceImpl implements EventService {
 		}
 		event.addSubscriber(principal.getName());
 		User owner = userRepository.findById(event.getOwner()).get();
-		//FIXME user get only first name and last name
-		
-		User user = userRepository.findById(principal.getName()).get();
 		Notification notification = notificationFactory
 				.creteNewNotification(NotificationNewDto.builder().title(NotificationTitle.SUBSCRIPTION_TO_EVENT)
 						.eventId(event.getEventId()).eventTitle(event.getTitle()).date(event.getDateTimeStart())
-						.userFirstName(user.getFirstName()).userLastName(user.getLastName()).build());
+						.userFullName(userRepository.getUserFullName(principal.getName())).build());
 		owner.addNotification(notification);
 		userRepository.save(owner);
 		eventsRepository.save(event);

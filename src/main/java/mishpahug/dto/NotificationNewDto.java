@@ -16,6 +16,5 @@ public class NotificationNewDto {
 	Long eventId;
 	String eventTitle;
 	LocalDateTime date;
-	String userFirstName;
-	String userLastName;
+	String userFullName;
 }

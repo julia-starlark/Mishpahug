@@ -20,21 +20,21 @@ public class NotificationFactory {
 		}
 		if (NotificationTitle.SUBSCRIPTION_TO_EVENT.equals(notificationNewDto.getTitle())) {
 			title = "Subscription to Event";
-			message = notificationNewDto.getUserFirstName() + " " + notificationNewDto.getUserLastName()
+			message = notificationNewDto.getUserFullName()
 					+ " subscribed to your event " + notificationNewDto.getEventTitle()
 					+ " that is suppossed to take place on "
 					+ notificationNewDto.getDate().format(DateTimeFormatter.ISO_LOCAL_TIME) + ".";
 		}
 		if (NotificationTitle.UNSUBSCRIPTION_FROM_EVENT.equals(notificationNewDto.getTitle())) {
 			title = "Unsubscription from Event";
-			message = notificationNewDto.getUserFirstName() + " " + notificationNewDto.getUserLastName()
+			message = notificationNewDto.getUserFullName()
 					+ " unsubscribed from your event " + notificationNewDto.getEventTitle()
 					+ " that is suppossed to take place on "
 					+ notificationNewDto.getDate().format(DateTimeFormatter.ISO_LOCAL_TIME) + ".";
 		}
 		if (NotificationTitle.NEW_VOTE.equals(notificationNewDto.getTitle())) {
 			title = "New Vote";
-			message = notificationNewDto.getUserFirstName() + " " + notificationNewDto.getUserLastName()
+			message = notificationNewDto.getUserFullName()
 					+ " has voted for the event " + notificationNewDto.getEventTitle();
 		}
 		if(NotificationTitle.EVENT_CANCELATION.equals(notificationNewDto.getTitle())) {
