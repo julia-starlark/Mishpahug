@@ -43,6 +43,11 @@ public class NotificationFactory {
 					+ " that was suppossed to take place on " + notificationNewDto.getDate().format(DateTimeFormatter.ISO_LOCAL_TIME)
 					+ " was cancelled.";
 		}
+		if(NotificationTitle.INVITATION.equals(notificationNewDto.getTitle())) {
+			title = "Invitation";
+			message = "You were invited to the event " + notificationNewDto.getEventTitle() + " that takes place on "
+					+ notificationNewDto.getDate().format(DateTimeFormatter.ISO_LOCAL_TIME);
+		}
 		return new Notification(title, message, notificationNewDto.getEventId());
 	}
 }

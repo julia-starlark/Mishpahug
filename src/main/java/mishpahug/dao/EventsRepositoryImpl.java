@@ -9,11 +9,11 @@ import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.PageRequest;
 import org.springframework.data.domain.Pageable;
-import org.springframework.data.geo.Circle;
 import org.springframework.data.geo.Point;
 import org.springframework.data.mongodb.core.MongoTemplate;
 import org.springframework.data.mongodb.core.query.Criteria;
 import org.springframework.data.mongodb.core.query.Query;
+import org.springframework.data.mongodb.core.query.Update;
 import org.springframework.data.repository.support.PageableExecutionUtils;
 
 import mishpahug.domain.Event;
@@ -87,6 +87,14 @@ public class EventsRepositoryImpl implements EventsRepositoryCustom {
 		// System.out.println(query);
 		long res = mongoTemplate.count(query, Event.class, "events");
 		return res != 0;
+	}
+
+	@Override
+	public void changeEventStatus(long eventId) {
+		Query query = new Query();
+		query.addCriteria(Criteria.where("_id").is(eventId));
+		Update update = new Update().set("status", "pending");
+		mongoTemplate.findAndModify(query, update, Event.class);
 	}
 
 	/*@Override

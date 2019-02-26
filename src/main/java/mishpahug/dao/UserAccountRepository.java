@@ -8,7 +8,7 @@ import org.springframework.data.mongodb.repository.Query;
 
 import mishpahug.domain.User;
 
-public interface UserAccountRepository extends MongoRepository<User, String> {
+public interface UserAccountRepository extends MongoRepository<User, String>, UserAccountRepositoryCustome {
 
 	@Query(value = "{$and: [{'_id':{$in : ?0}},{'invitations':{$elemMatch : {$eq: ?1}}}]}", fields="{'login':'_id'}")
 	List<User> findParticipants( Set<String> subscribers, long eventId);

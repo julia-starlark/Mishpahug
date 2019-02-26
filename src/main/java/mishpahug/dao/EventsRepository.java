@@ -23,4 +23,6 @@ public interface EventsRepository extends MongoRepository<Event, Long>, EventsRe
 	@Query("{'subscribers':?0}")
 	public List<Event> findEventBySubscribers(String user);
 	}
+
+	
 		

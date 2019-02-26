@@ -12,5 +12,7 @@ public interface EventsRepositoryCustom {
 	
 	boolean checkForEventOverlap(String user, LocalDateTime eventStart, LocalDateTime eventFinish, boolean flag);
 	
+	void changeEventStatus(long eventId);
+	
 	//void updateOverLapingEvents(String user, LocalDateTime eventStart, LocalDateTime eventFinish);
 }

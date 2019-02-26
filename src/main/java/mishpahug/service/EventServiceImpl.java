@@ -195,7 +195,6 @@ public class EventServiceImpl implements EventService {
 		Event event = eventsRepository.findById(eventId).orElse(null);
 		Address eventAddress = event.getAddress();
 		User eventOwner = userRepository.findById(event.getOwner()).get();
-		// Location eventLocation = eventAddress.getLocation();
 		double[] eventLocation = eventAddress.getLocation();
 		LocationDto location = LocationDto.builder().lat(eventLocation[0]).lng(eventLocation[1]).build();
 		AddressDto address = AddressDto.builder().city(eventAddress.getCity()).place_id(eventAddress.getPlace_id())
@@ -221,7 +220,6 @@ public class EventServiceImpl implements EventService {
 
 	private EventResponseDto convertToEventResponseDto(Event event, OwnerDto owner) {
 		Address eventAddress = event.getAddress();
-		// Location eventLocation = eventAddress.getLocation();
 		double[] eventLocation = eventAddress.getLocation();
 		LocationDto location = LocationDto.builder().lat(eventLocation[0]).lng(eventLocation[1]).build();
 		AddressDto address = AddressDto.builder().city(eventAddress.getCity()).place_id(eventAddress.getPlace_id())
@@ -236,15 +234,14 @@ public class EventServiceImpl implements EventService {
 	}
 
 	@Override
-	public CalendarResponseDto getEventsByMonth(int month, Principal principal) {
+	public CalendarResponseDto getEventsByMonth(int month, int year, Principal principal) {
 		if (month < 1 || month > 12) {
 			throw new InvalidDataException();
 		}
-		int year = LocalDate.now().getYear();
 		LocalDateTime dateFrom = LocalDateTime.of(year, month++, 1, 0, 0, 0);
 		if (month - 1 == 12) {
 			month = 1;
-			year = LocalDate.now().getYear() + 1;
+			year += 1;
 		}
 		LocalDateTime dateTo = LocalDateTime.of(year, month, 1, 0, 0, 0);
 		List<EventForCalendarDto> eventsList = eventsRepository.findEventByMonth(dateFrom, dateTo, principal.getName())
@@ -350,6 +347,8 @@ public class EventServiceImpl implements EventService {
 		}
 		event.addSubscriber(principal.getName());
 		User owner = userRepository.findById(event.getOwner()).get();
+		//FIXME user get only first name and last name
+		
 		User user = userRepository.findById(principal.getName()).get();
 		Notification notification = notificationFactory
 				.creteNewNotification(NotificationNewDto.builder().title(NotificationTitle.SUBSCRIPTION_TO_EVENT)
@@ -369,6 +368,7 @@ public class EventServiceImpl implements EventService {
 			throw new ConflictException("User can't unsubscribe from the event!");
 		}
 		event.deleteSubscriber(principal.getName());
+		//FIXME don't get whole owner and user
 		User owner = userRepository.findById(event.getOwner()).get();
 		User user = userRepository.findById(principal.getName()).get();
 		Notification notification = notificationFactory
@@ -384,6 +384,7 @@ public class EventServiceImpl implements EventService {
 	@Override
 	@Transactional
 	public SuccessResponseDto voteForEvent(Long eventId, Double voteCount, Principal principal) {
+		//FIXME don't get whole event
 		EventArchive event = archiveRepository.findById(eventId).orElse(null);
 		String userLogin = principal.getName();
 		User participant = userRepository.findById(userLogin).get();
@@ -425,10 +426,8 @@ public class EventServiceImpl implements EventService {
 				eventsRepository.save(e);
 			}
 		}
-		String message = "You were invited to the event " + event.getTitle() + " that takes place on "
-				+ event.getDateTimeStart().format(DateTimeFormatter.ISO_LOCAL_DATE);
-		Notification notification = new Notification("Invitation", message, eventId);
-		user.addNotification(notification);
+		user.addNotification(notificationFactory.creteNewNotification(NotificationNewDto.builder().title(NotificationTitle.INVITATION).eventId(eventId)
+				.date(event.getDateTimeStart()).build()));
 		userRepository.save(user);
 		eventsRepository.save(event);
 		return new InviteResponseDto(userId, true);
@@ -437,9 +436,7 @@ public class EventServiceImpl implements EventService {
 	@Override
 	@Transactional
 	public EventStatusResponseDto changeEventStatus(Long eventId) {
-		Event event = eventsRepository.findById(eventId).orElse(null);
-		event.setStatus("pending");
-		eventsRepository.save(event);
+		eventsRepository.changeEventStatus(eventId);
 		return new EventStatusResponseDto(eventId, "Pending");
 	}
 

@@ -2,9 +2,6 @@ package mishpahug.service;
 
 import java.security.Principal;
 
-import org.springframework.boot.web.servlet.server.Session;
-import org.springframework.web.method.annotation.SessionAttributesHandler;
-
 import mishpahug.dto.CalendarResponseDto;
 import mishpahug.dto.EventCreateDto;
 import mishpahug.dto.EventResponseDto;
@@ -21,10 +18,10 @@ public interface EventService {
 	SuccessResponseDto addEvent(EventCreateDto eventCreateDto, Principal principal);
 
 	EventResponseDto getOwnEventInfoById(Long eventId);
-	
+
 	EventResponseDto getSubscribedEventById(Long eventId);
-	
-	CalendarResponseDto getEventsByMonth(int month,Principal principal);
+
+	CalendarResponseDto getEventsByMonth(int month, int year, Principal principal);
 
 	EventsListResponseDto getOwnEventsList(Principal principal);
 
@@ -41,6 +38,6 @@ public interface EventService {
 	InviteResponseDto inviteToEvent(Long eventId, Long userId);
 
 	EventStatusResponseDto changeEventStatus(Long eventId);
-	
+
 	EventsInProgressResponseDto getAllEventsInProgress(int page, int size, FiltersDto filters);
 }
