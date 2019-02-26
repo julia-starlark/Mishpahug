@@ -367,11 +367,10 @@ public class EventServiceImpl implements EventService {
 		event.deleteSubscriber(principal.getName());
 		//FIXME don't get whole owner and user
 		User owner = userRepository.findById(event.getOwner()).get();
-		User user = userRepository.findById(principal.getName()).get();
 		Notification notification = notificationFactory
 				.creteNewNotification(NotificationNewDto.builder().title(NotificationTitle.UNSUBSCRIPTION_FROM_EVENT)
 						.eventId(event.getEventId()).eventTitle(event.getTitle()).date(event.getDateTimeStart())
-						.userFirstName(user.getFirstName()).userLastName(user.getLastName()).build());
+						.userFullName(userRepository.getUserFullName(principal.getName())).build());
 		owner.addNotification(notification);
 		userRepository.save(owner);
 		eventsRepository.save(event);
@@ -384,7 +383,6 @@ public class EventServiceImpl implements EventService {
 		//FIXME don't get whole event
 		EventArchive event = archiveRepository.findById(eventId).orElse(null);
 		String userLogin = principal.getName();
-		User participant = userRepository.findById(userLogin).get();
 		User owner = userRepository.findById(event.getOwner()).get();
 		double currentRate = owner.getRate();
 		int numVoters = owner.getNumberOfVoters();
@@ -394,7 +392,7 @@ public class EventServiceImpl implements EventService {
 		Notification notification = notificationFactory
 				.creteNewNotification(NotificationNewDto.builder().title(NotificationTitle.NEW_VOTE)
 						.eventTitle(event.getTitle()).date(event.getDateTimeStart()).eventId(event.getEventId())
-						.userFirstName(participant.getFirstName()).userLastName(participant.getLastName()).build());
+						.userFullName(userRepository.getUserFullName(userLogin)).build());
 		owner.addNotification(notification);
 		userRepository.save(owner);
 		event.getVoted().add(userLogin);
