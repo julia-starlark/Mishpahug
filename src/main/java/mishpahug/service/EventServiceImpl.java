@@ -4,8 +4,6 @@ import java.security.Principal;
 import java.time.Duration;
 import java.time.LocalDate;
 import java.time.LocalDateTime;
-import java.time.LocalTime;
-import java.time.Period;
 import java.util.ArrayList;
 import java.util.Collections;
 import java.util.HashSet;
@@ -217,12 +215,12 @@ public class EventServiceImpl implements EventService {
 		List<Event> myEvents = eventsRepository.findEventByOwner(principal.getName());
 		List<EventResponseDto> eventsRespDto = new ArrayList<>();
 		for (Event e : myEvents) {
-			Set<ParticipantDto> participants = e.getParticipants().stream().map(id -> userRepository.findById(id).get())
+			Set<ParticipantDto> subscribers = e.getSubscribers().stream().map(id -> userRepository.findById(id).get())
 					.map(u -> dtoFactory.convertToParticipantDto(u, e)).collect(Collectors.toSet());
 			if (e.getStatus().equals("in progress")) {
-				participants.forEach(p -> p.setPhoneNumber(null));
+				subscribers.forEach(p -> p.setPhoneNumber(null));
 			}
-			eventsRespDto.add(dtoFactory.convertToEventResponseDto(e, participants));
+			eventsRespDto.add(dtoFactory.convertToEventResponseDto(e, subscribers));
 		}
 		EventsListResponseDto events = new EventsListResponseDto(eventsRespDto);
 		return events;

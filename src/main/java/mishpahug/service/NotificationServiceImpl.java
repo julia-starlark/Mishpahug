@@ -13,7 +13,6 @@ import mishpahug.dao.UserAccountRepository;
 import mishpahug.domain.Notification;
 import mishpahug.domain.User;
 import mishpahug.dto.NotificationDto;
-import mishpahug.dto.NotificationNewDto;
 import mishpahug.dto.NotificationsCountDto;
 import mishpahug.dto.NotificationsListDto;
 import mishpahug.dto.SuccessResponseDto;
