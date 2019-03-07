@@ -343,7 +343,7 @@ public class EventServiceImpl implements EventService {
 		Event event = eventsRepository.findById(eventId).orElse(null);
 		User user = userRepository.findUserByUserId(userId);
 		String login = user.getLogin();
-		if (!event.getSubscribers().contains(login) || user.getInvitations().contains(userId)) {
+		if (!event.getSubscribers().contains(login) || user.getInvitations().contains(eventId)) {
 			throw new ConflictException("User is already invited to the event or is not subscribed to the event!");
 		}
 		user.addInvitation(eventId);
