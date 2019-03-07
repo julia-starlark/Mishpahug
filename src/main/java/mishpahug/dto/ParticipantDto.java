@@ -12,7 +12,6 @@ import lombok.NoArgsConstructor;
 import lombok.Setter;
 import lombok.Singular;
 
-@Getter
 @NoArgsConstructor
 @AllArgsConstructor
 @Builder
@@ -34,4 +33,44 @@ public class ParticipantDto {
 	Double rate;
 	int numberOfVoters;
 	boolean isInvited;
+	
+	public Long getUserId() {
+		return userId;
+	}
+	public String getFullName() {
+		return fullName;
+	}
+	public String getConfession() {
+		return confession;
+	}
+	public String getGender() {
+		return gender;
+	}
+	public int getAge() {
+		return age;
+	}
+	public String[] getPictureLink() {
+		return pictureLink;
+	}
+	public String getPhoneNumber() {
+		return phoneNumber;
+	}
+	public String getMaritalStatus() {
+		return maritalStatus;
+	}
+	public List<String> getFoodPreferences() {
+		return foodPreferences;
+	}
+	public List<String> getLanguages() {
+		return languages;
+	}
+	public Double getRate() {
+		return rate;
+	}
+	public int getNumberOfVoters() {
+		return numberOfVoters;
+	}
+	public boolean isIsInvited() {
+		return isInvited;
+	}
 }

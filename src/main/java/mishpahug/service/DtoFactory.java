@@ -47,7 +47,7 @@ public class DtoFactory {
 				.age(Period.between(u.getDateOfBirth(), LocalDate.now()).getYears()).pictureLink(u.getPictureLink())
 				.maritalStatus(u.getMaritalStatus()).foodPreferences(u.getFoodPreferences()).languages(u.getLanguages())
 				.rate(u.getRate()).phoneNumber(u.getPhoneNumber()).numberOfVoters(u.getNumberOfVoters())
-				/* .isInvited(u.getInvitations().contains(event.getEventId()) ? false : true) */.build();
+				.isInvited(u.getInvitations().contains(event.getEventId()) ? true : false).build();
 	}
 
 	public OwnerDto convertToOwnerDto(User eventOwner) {

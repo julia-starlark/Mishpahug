@@ -16,6 +16,9 @@ import java.util.stream.Collectors;
 
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.data.domain.Page;
+import org.springframework.data.domain.PageImpl;
+import org.springframework.data.domain.PageRequest;
+import org.springframework.data.domain.Pageable;
 import org.springframework.data.domain.Sort;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
@@ -348,7 +351,6 @@ public class EventServiceImpl implements EventService {
 		LocalDateTime timeOccupiedfrom = event.getDateTimeStart().withHour(0).withMinute(0).withSecond(0);
 		LocalDateTime timeOccupiedto = event.getDateTimeStart().withHour(23).withMinute(59).withSecond(59);
 		List<Event> eventsOverlap = eventsRepository.findOverlapingEvents(login, timeOccupiedfrom, timeOccupiedto);
-		eventsOverlap.forEach(e -> System.out.println(e));
 		if (!eventsOverlap.isEmpty()) {
 			for (Event e : eventsOverlap) {
 				e.deleteSubscriber(login);
@@ -370,13 +372,15 @@ public class EventServiceImpl implements EventService {
 	}
 
 	@Override
-	public EventsInProgressResponseDto getAllEventsInProgress(int page, int size, FiltersDto filters) {
-		Page<Event> eventsInProg = eventsRepository.query(DynamicQuery.builder()
+	public EventsInProgressResponseDto getAllEventsInProgress(int pageNum, int size, FiltersDto filters) {
+		Pageable pageable = PageRequest.of(pageNum, size);
+		
+		List<Event> eventsInProg = eventsRepository.query(DynamicQuery.builder()
 				.confession(filters.getFilters().getConfession()).dateFrom(filters.getFilters().getDateFrom())
 				.dateTo(filters.getFilters().getDateTo()).holiday(filters.getFilters().getHolidays())
 				.food(filters.getFilters().getFood()).lat(filters.getLocation().getLat())
-				.lng(filters.getLocation().getLng()).radius(filters.getLocation().getRadius()).build(), page, size);
-		List<EventResponseDto> events = eventsInProg.getContent().stream()
+				.lng(filters.getLocation().getLng()).radius(filters.getLocation().getRadius()).build(), pageNum, size);
+		List<EventResponseDto> events = eventsInProg.stream()
 				.map(e -> dtoFactory.convertToEventResponseDto(e, dtoFactory.convertToOwnerDto(userRepository.findById(e.getOwner()).get())))
 				.sorted().collect(Collectors.toList());
 		events.forEach(e -> {
@@ -386,13 +390,14 @@ public class EventServiceImpl implements EventService {
 			e.setParticipants(null);
 			e.getOwner().setPhoneNumber(null);
 		});
-		long totalElements = eventsInProg.getTotalElements();
-		int totalPages = eventsInProg.getTotalPages();
-		int number = eventsInProg.getNumber();
-		boolean first = eventsInProg.isFirst();
-		boolean last = eventsInProg.isLast();
-		int numberOfElements = eventsInProg.getNumberOfElements();
-		Sort sort = eventsInProg.getSort();
+		Page<EventResponseDto> page = new PageImpl<>(events, pageable, events.size());
+		long totalElements = page.getTotalElements();//eventsInProg.getTotalElements();
+		int totalPages = page.getTotalPages();//eventsInProg.getTotalPages();
+		int number = page.getNumber();//eventsInProg.getNumber();
+		boolean first = page.isFirst(); //eventsInProg.isFirst();
+		boolean last = page.isLast();//eventsInProg.isLast();
+		int numberOfElements = page.getNumberOfElements();//eventsInProg.getNumberOfElements();
+		Sort sort = page.getSort();//eventsInProg.getSort();
 		EventsInProgressResponseDto res = new EventsInProgressResponseDto(events, totalElements, totalPages, size,
 				number, numberOfElements, first, last, sort);
 		return res;

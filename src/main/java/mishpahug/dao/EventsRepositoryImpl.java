@@ -6,31 +6,35 @@ import java.util.ArrayList;
 import java.util.List;
 
 import org.springframework.beans.factory.annotation.Autowired;
-import org.springframework.data.domain.Page;
 import org.springframework.data.domain.PageRequest;
 import org.springframework.data.domain.Pageable;
+import org.springframework.data.geo.Distance;
+import org.springframework.data.geo.GeoResults;
+import org.springframework.data.geo.Metrics;
 import org.springframework.data.geo.Point;
+import org.springframework.data.mongodb.core.MongoOperations;
 import org.springframework.data.mongodb.core.MongoTemplate;
 import org.springframework.data.mongodb.core.query.Criteria;
+import org.springframework.data.mongodb.core.query.NearQuery;
 import org.springframework.data.mongodb.core.query.Query;
 import org.springframework.data.mongodb.core.query.Update;
-import org.springframework.data.repository.support.PageableExecutionUtils;
 
 import mishpahug.domain.Event;
 
 public class EventsRepositoryImpl implements EventsRepositoryCustom {
 
 	private final MongoTemplate mongoTemplate;
-
+	private final MongoOperations operations;
+	
 	@Autowired
-	public EventsRepositoryImpl(MongoTemplate mongoTemplate) {
+	public EventsRepositoryImpl(MongoTemplate mongoTemplate, MongoOperations operations) {
 		this.mongoTemplate = mongoTemplate;
+		this.operations = operations;
 	}
 
 	@Override
-	public Page<Event> query(DynamicQuery dynamicQuery, int page, int size) {
+	public List<Event> query(DynamicQuery dynamicQuery, int page, int size) {
 		final Query query = new Query();
-		Pageable pageableRequest = PageRequest.of(page, size);
 		final List<Criteria> criteria = new ArrayList<>();
 		//FIXME
 		if (dynamicQuery.getDateFrom() != null) {
@@ -52,18 +56,27 @@ public class EventsRepositoryImpl implements EventsRepositoryCustom {
 		if (!dynamicQuery.getFood().equals("")) {
 			criteria.add(Criteria.where("food").in(dynamicQuery.getFood()));
 		}
-		if (dynamicQuery.getLat() != null && dynamicQuery.getLng() != null && dynamicQuery.getRadius() != null) {
-			criteria.add(
-					Criteria.where("address.location")
-					.nearSphere(new Point(dynamicQuery.getLat(), dynamicQuery.getLng())).maxDistance(dynamicQuery.getRadius()));
-					//.withinSphere(new Circle(dynamicQuery.getLat(), dynamicQuery.getLng(), dynamicQuery.getRadius())));
-		}
 		if (!criteria.isEmpty()) {
 			query.addCriteria(new Criteria().andOperator(criteria.toArray(new Criteria[criteria.size()])));
 		}
-		query.with(pageableRequest);
-		List<Event> events = mongoTemplate.find(query, Event.class, "events");
-		return PageableExecutionUtils.getPage(events, pageableRequest, () -> mongoTemplate.count(query, Event.class));
+		/*if (dynamicQuery.getLat() != null && dynamicQuery.getLng() != null && dynamicQuery.getRadius() != null) {
+			criteria.add(
+					Criteria.where("address.location")
+					//.nearSphere(new Point(dynamicQuery.getLat(), dynamicQuery.getLng())).maxDistance(dynamicQuery.getRadius()/1000.));
+					.withinSphere(new Circle(dynamicQuery.getLat(), dynamicQuery.getLng(), dynamicQuery.getRadius()/1000.)));
+		}*/
+		Pageable pageableRequest = PageRequest.of(page, size);
+		Point point = new Point(dynamicQuery.getLat(), dynamicQuery.getLng());
+		Distance dist = new Distance(dynamicQuery.getRadius()/1000., Metrics.KILOMETERS);
+		NearQuery nquery = NearQuery.near(point).maxDistance(dist).query(query);
+		GeoResults<Event> results = operations.geoNear(nquery, Event.class);
+		//results.getContent().forEach(e -> System.out.println(e));
+		//nquery.with(pageableRequest);
+		List<Event> events = new ArrayList<>();
+		results.getContent().stream().map(gr -> gr.getContent()).forEach(e -> events.add(e));
+		return events;
+		//List<Event> events = mongoTemplate.find(query, Event.class, "events");
+		//return PageableExecutionUtils.getPage(events, pageableRequest, () -> operations.count(query, Event.class));
 	}
 
 	@Override
